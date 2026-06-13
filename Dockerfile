@@ -10,7 +10,7 @@ COPY index.html vite.config.ts tsconfig*.json ./
 COPY src ./src
 RUN if [ -d public ]; then cp -r public ./public; fi
 
-RUN npm run build
+RUN npx vite build
 
 # ── Stage 2: Build server ─────────────────────────────────────────────────────
 FROM node:22-alpine AS server-builder
