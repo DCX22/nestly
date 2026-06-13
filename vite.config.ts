@@ -7,7 +7,7 @@ export default defineConfig({
   base: process.env.GITHUB_ACTIONS ? '/NineWestPages/' : '/',
   server: {
     proxy: {
-      '/api': 'http://localhost:3001',
+      '/api': 'http://localhost:3002',
     },
   },
 })
