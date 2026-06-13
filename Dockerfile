@@ -23,7 +23,7 @@ RUN npm ci
 COPY server/tsconfig.json ./
 COPY server/src ./src
 
-RUN npm run build
+RUN npx tsc
 
 # ── Stage 3: Production image ─────────────────────────────────────────────────
 FROM node:22-alpine AS production
