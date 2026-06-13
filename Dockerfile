@@ -41,8 +41,8 @@ COPY --from=server-builder /app/server/dist ./server-dist
 COPY --from=frontend-builder /app/dist ./public
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=3002
 
-EXPOSE 3000
+EXPOSE 3002
 
 CMD ["node", "server-dist/index.js"]
