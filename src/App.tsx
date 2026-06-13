@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import dayjs from 'dayjs'
-import { supabase } from './lib/supabase'
+import * as api from './lib/api'
 import type {
   HouseholdSummary,
   Invite,
@@ -19,11 +19,88 @@ const mealTypes = ['breakfast', 'lunch', 'dinner'] as const
 type Tab = 'shopping' | 'recipes' | 'meal-plan' | 'todos' | 'group' | 'admin-suite'
 type ThemeMode = 'system' | 'light' | 'dark'
 
+const DEMO_HOUSEHOLD_ID = 'demo-household'
+
+function scaleIngredients(text: string, factor: number): string {
+  if (Math.abs(factor - 1) < 0.001) return text
+  return text.replace(/\d+(\.\d+)?/g, (match) => {
+    const scaled = parseFloat(match) * factor
+    const rounded = Math.round(scaled * 10) / 10
+    return rounded % 1 === 0 ? String(Math.round(rounded)) : String(rounded)
+  })
+}
+
+function makeDemoData() {
+  const today = dayjs()
+  const monday = today.startOf('week').add(1, 'day')
+  const fmt = (d: ReturnType<typeof dayjs>) => d.format('YYYY-MM-DD')
+
+  const shopping: ShoppingItem[] = [
+    { id: 's1', household_id: DEMO_HOUSEHOLD_ID, title: 'Whole milk', quantity: '2L', is_complete: false, created_at: '' },
+    { id: 's2', household_id: DEMO_HOUSEHOLD_ID, title: 'Sourdough bread', quantity: null, is_complete: false, created_at: '' },
+    { id: 's3', household_id: DEMO_HOUSEHOLD_ID, title: 'Cheddar cheese', quantity: '400g', is_complete: false, created_at: '' },
+    { id: 's4', household_id: DEMO_HOUSEHOLD_ID, title: 'Free-range eggs', quantity: '12 pack', is_complete: true, created_at: '' },
+    { id: 's5', household_id: DEMO_HOUSEHOLD_ID, title: 'Unsalted butter', quantity: '250g', is_complete: true, created_at: '' },
+    { id: 's6', household_id: DEMO_HOUSEHOLD_ID, title: 'Pasta (penne)', quantity: '500g', is_complete: false, created_at: '' },
+  ]
+
+  const recipes: Recipe[] = [
+    {
+      id: 'r1', household_id: DEMO_HOUSEHOLD_ID, title: 'Spaghetti Bolognese',
+      servings: 4, source_url: null,
+      ingredients: '500g beef mince\n1 onion, diced\n2 garlic cloves\n400g chopped tomatoes\n2 tbsp tomato puree\n1 tsp dried oregano\nSalt & pepper',
+      method: '1. Fry onion until soft.\n2. Add garlic and mince, cook until browned.\n3. Add tomatoes, puree and oregano.\n4. Simmer 20 mins. Serve over spaghetti.',
+      notes: null, created_at: '',
+    },
+    {
+      id: 'r2', household_id: DEMO_HOUSEHOLD_ID, title: 'Chicken Tikka Masala',
+      servings: 4, source_url: null,
+      ingredients: '600g chicken breast, cubed\n1 onion\n400ml coconut milk\n3 tbsp tikka paste\n400g chopped tomatoes\nFresh coriander',
+      method: '1. Marinate chicken in tikka paste 30 mins.\n2. Cook chicken until charred.\n3. Fry onion, add tomatoes and coconut milk.\n4. Add chicken, simmer 15 mins.',
+      notes: null, created_at: '',
+    },
+    {
+      id: 'r3', household_id: DEMO_HOUSEHOLD_ID, title: 'Avocado Toast',
+      servings: 2, source_url: null,
+      ingredients: '2 slices sourdough\n1 ripe avocado\nJuice of half a lemon\nChilli flakes\nSalt & pepper\n2 poached eggs (optional)',
+      method: '1. Toast bread.\n2. Mash avocado with lemon juice, season.\n3. Spread on toast, top with chilli flakes and eggs.',
+      notes: null, created_at: '',
+    },
+  ]
+
+  const mealPlan: MealPlanEntry[] = [
+    { id: 'm1', household_id: DEMO_HOUSEHOLD_ID, meal_date: fmt(monday), meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Spaghetti Bolognese', created_at: '' },
+    { id: 'm2', household_id: DEMO_HOUSEHOLD_ID, meal_date: fmt(monday.add(1, 'day')), meal_type: 'lunch', recipe_id: 'r3', recipe_title: 'Avocado Toast', created_at: '' },
+    { id: 'm3', household_id: DEMO_HOUSEHOLD_ID, meal_date: fmt(monday.add(2, 'day')), meal_type: 'dinner', recipe_id: 'r2', recipe_title: 'Chicken Tikka Masala', created_at: '' },
+    { id: 'm4', household_id: DEMO_HOUSEHOLD_ID, meal_date: fmt(monday.add(4, 'day')), meal_type: 'dinner', recipe_id: 'r1', recipe_title: 'Spaghetti Bolognese', created_at: '' },
+  ]
+
+  const todos: TodoItem[] = [
+    { id: 't1', household_id: DEMO_HOUSEHOLD_ID, title: 'Hoover downstairs', notes: null, due_date: null, recurrence: 'weekly', is_complete: false, created_at: '' },
+    { id: 't2', household_id: DEMO_HOUSEHOLD_ID, title: 'Clean bathroom', notes: null, due_date: null, recurrence: 'weekly', is_complete: true, created_at: '' },
+    { id: 't3', household_id: DEMO_HOUSEHOLD_ID, title: 'Take bins out', notes: null, due_date: null, recurrence: 'weekly', is_complete: false, created_at: '' },
+    { id: 't4', household_id: DEMO_HOUSEHOLD_ID, title: 'Book dentist appointment', notes: null, due_date: null, recurrence: 'none', is_complete: false, created_at: '' },
+    { id: 't5', household_id: DEMO_HOUSEHOLD_ID, title: 'Buy birthday card for Mum', notes: null, due_date: null, recurrence: 'none', is_complete: false, created_at: '' },
+  ]
+
+  const members: Member[] = [
+    { id: 'mem1', household_id: DEMO_HOUSEHOLD_ID, user_id: 'demo-user', member_email: 'demo@nestly.local', role: 'admin' },
+    { id: 'mem2', household_id: DEMO_HOUSEHOLD_ID, user_id: 'demo-user-2', member_email: 'alice@nestly.local', role: 'member' },
+  ]
+
+  const memberships: Membership[] = [
+    { household_id: DEMO_HOUSEHOLD_ID, member_email: 'demo@nestly.local', households: { name: 'Demo Household' } },
+  ]
+
+  return { shopping, recipes, mealPlan, todos, members, memberships }
+}
+
 function App() {
   const [loadingAuth, setLoadingAuth] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string>('')
   const [systemRole, setSystemRole] = useState<SystemRole>('member')
+  const [isDemoMode, setIsDemoMode] = useState(false)
 
   const [memberships, setMemberships] = useState<Membership[]>([])
   const [activeHouseholdId, setActiveHouseholdId] = useState<string>('')
@@ -45,9 +122,7 @@ function App() {
   const [loadingData, setLoadingData] = useState(false)
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     const stored = window.localStorage.getItem('theme-mode')
-    if (stored === 'light' || stored === 'dark' || stored === 'system') {
-      return stored
-    }
+    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
     return 'system'
   })
 
@@ -57,19 +132,28 @@ function App() {
   )
 
   const getHouseholdName = (membership: Membership | null) => {
-    if (!membership?.households) {
-      return null
-    }
-
-    if (Array.isArray(membership.households)) {
-      return membership.households[0]?.name ?? null
-    }
-
+    if (!membership?.households) return null
+    if (Array.isArray(membership.households)) return membership.households[0]?.name ?? null
     return membership.households.name
   }
 
   const hasMembership = memberships.length > 0
   const isSystemAdmin = systemRole === 'admin'
+
+  function enterDemoMode() {
+    const data = makeDemoData()
+    setIsDemoMode(true)
+    setUserEmail('demo@nestly.local')
+    setMemberships(data.memberships)
+    setActiveHouseholdId(DEMO_HOUSEHOLD_ID)
+    setShoppingItems(data.shopping)
+    setRecipes(data.recipes)
+    setMealPlan(data.mealPlan)
+    setTodos(data.todos)
+    setMembers(data.members)
+    setLoadingAuth(false)
+    setStatus('Demo mode — changes are temporary and not saved.')
+  }
 
   useEffect(() => {
     const tokenFromUrl = new URLSearchParams(window.location.search).get('invite')
@@ -78,28 +162,19 @@ function App() {
     }
 
     const initSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      setUserId(session?.user.id ?? null)
-      setUserEmail(session?.user.email ?? '')
+      const session = await api.auth.getSession()
+      if (session) {
+        setUserId(session.userId)
+        setUserEmail(session.email)
+        setSystemRole(session.systemRole)
+      }
       setLoadingAuth(false)
     }
 
-    initSession().catch((initError) => {
-      setError((initError as Error).message)
+    initSession().catch((err: Error) => {
+      setError(err.message)
       setLoadingAuth(false)
     })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserId(session?.user.id ?? null)
-      setUserEmail(session?.user.email ?? '')
-    })
-
-    return () => subscription.unsubscribe()
   }, [])
 
   useEffect(() => {
@@ -114,23 +189,14 @@ function App() {
 
     const bootstrap = async () => {
       setError('')
-
-      const { error: ensureRoleError } = await supabase.rpc('ensure_current_user_role')
-      if (ensureRoleError) {
-        setError(ensureRoleError.message)
-      }
-
-      await Promise.all([loadUserRole(userId), loadMemberships(userId)])
+      await Promise.all([loadMemberships()])
     }
 
     void bootstrap()
   }, [userId])
 
   useEffect(() => {
-    if (!activeHouseholdId) {
-      return
-    }
-
+    if (!activeHouseholdId || isDemoMode) return
     void loadHouseholdData(activeHouseholdId)
   }, [activeHouseholdId])
 
@@ -140,186 +206,121 @@ function App() {
       setAdminHouseholdId('')
       return
     }
-
     void loadAdminHouseholds()
   }, [isSystemAdmin])
 
   useEffect(() => {
-    if (!isSystemAdmin || !adminHouseholdId) {
-      return
-    }
-
+    if (!isSystemAdmin || !adminHouseholdId) return
     void loadAdminHouseholdData(adminHouseholdId)
   }, [isSystemAdmin, adminHouseholdId])
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)')
-
     const applyTheme = () => {
-      const resolvedTheme =
-        themeMode === 'system' ? (media.matches ? 'dark' : 'light') : themeMode
-      document.documentElement.setAttribute('data-theme', resolvedTheme)
+      const resolved = themeMode === 'system' ? (media.matches ? 'dark' : 'light') : themeMode
+      document.documentElement.setAttribute('data-theme', resolved)
     }
-
     applyTheme()
-
-    const onSystemThemeChange = () => {
-      if (themeMode === 'system') {
-        applyTheme()
-      }
-    }
-
-    media.addEventListener('change', onSystemThemeChange)
+    const onSystemChange = () => { if (themeMode === 'system') applyTheme() }
+    media.addEventListener('change', onSystemChange)
     window.localStorage.setItem('theme-mode', themeMode)
-
-    return () => media.removeEventListener('change', onSystemThemeChange)
+    return () => media.removeEventListener('change', onSystemChange)
   }, [themeMode])
 
-  async function loadUserRole(uid: string) {
-    const { data, error: roleError } = await supabase
-      .from('user_roles')
-      .select('system_role')
-      .eq('user_id', uid)
-      .maybeSingle()
-
-    if (roleError) {
-      setError(roleError.message)
-      return
-    }
-
-    setSystemRole((data?.system_role as SystemRole | undefined) ?? 'member')
-  }
-
-  async function loadMemberships(uid: string) {
-    const { data, error: queryError } = await supabase
-      .from('household_members')
-      .select('household_id, member_email, households(name)')
-      .eq('user_id', uid)
-      .order('created_at', { ascending: true })
-
-    if (queryError) {
-      setError(queryError.message)
-      return
-    }
-
-    const mapped = (data ?? []) as Membership[]
-    setMemberships(mapped)
-
-    if (mapped.length > 0) {
-      setActiveHouseholdId((current) => current || mapped[0].household_id)
+  async function loadMemberships() {
+    try {
+      const data = await api.getMemberships()
+      setMemberships(data)
+      if (data.length > 0) {
+        setActiveHouseholdId((current) => current || data[0].household_id)
+      }
+      // set system role from token — already set during login/session check
+    } catch (err) {
+      setError((err as Error).message)
     }
   }
 
   async function loadHouseholdData(householdId: string) {
     setLoadingData(true)
-
-    const [shoppingRes, recipesRes, mealRes, todoRes, membersRes] = await Promise.all([
-      supabase
-        .from('shopping_items')
-        .select('*')
-        .eq('household_id', householdId)
-        .order('is_complete', { ascending: true })
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('recipes')
-        .select('*')
-        .eq('household_id', householdId)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('meal_plan_entries')
-        .select('*')
-        .eq('household_id', householdId)
-        .order('meal_date', { ascending: true }),
-      supabase
-        .from('todos')
-        .select('*')
-        .eq('household_id', householdId)
-        .order('is_complete', { ascending: true })
-        .order('due_date', { ascending: true, nullsFirst: false }),
-      supabase
-        .from('household_members')
-        .select('id, household_id, user_id, member_email, role')
-        .eq('household_id', householdId)
-        .order('created_at', { ascending: true }),
-    ])
-
-    const firstError =
-      shoppingRes.error ?? recipesRes.error ?? mealRes.error ?? todoRes.error ?? membersRes.error
-
-    if (firstError) {
-      setError(firstError.message)
+    try {
+      const [shopping, recipeList, meals, todoList, memberList] = await Promise.all([
+        api.getShoppingItems(householdId),
+        api.getRecipes(householdId),
+        api.getMealPlan(householdId),
+        api.getTodos(householdId),
+        api.getMembers(householdId),
+      ])
+      setShoppingItems(shopping)
+      setRecipes(recipeList)
+      setMealPlan(meals)
+      setTodos(todoList)
+      setMembers(memberList)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
       setLoadingData(false)
-      return
     }
-
-    setShoppingItems((shoppingRes.data ?? []) as ShoppingItem[])
-    setRecipes((recipesRes.data ?? []) as Recipe[])
-    setMealPlan((mealRes.data ?? []) as MealPlanEntry[])
-    setTodos((todoRes.data ?? []) as TodoItem[])
-    setMembers((membersRes.data ?? []) as Member[])
-    setLoadingData(false)
   }
 
   async function loadAdminHouseholds() {
-    const { data, error: householdsError } = await supabase
-      .from('households')
-      .select('id, name, created_at')
-      .order('created_at', { ascending: true })
-
-    if (householdsError) {
-      setError(householdsError.message)
-      return
-    }
-
-    const rows = (data ?? []) as HouseholdSummary[]
-    setAdminHouseholds(rows)
-    if (rows.length > 0) {
-      setAdminHouseholdId((current) => current || rows[0].id)
+    try {
+      const rows = await api.getHouseholds()
+      setAdminHouseholds(rows)
+      if (rows.length > 0) {
+        setAdminHouseholdId((current) => current || rows[0].id)
+      }
+    } catch (err) {
+      setError((err as Error).message)
     }
   }
 
   async function loadAdminHouseholdData(householdId: string) {
-    const [membersRes, invitesRes] = await Promise.all([
-      supabase
-        .from('household_members')
-        .select('id, household_id, user_id, member_email, role')
-        .eq('household_id', householdId)
-        .order('created_at', { ascending: true }),
-      supabase
-        .from('household_invites')
-        .select('id, household_id, email, invite_token, expires_at, accepted_at')
-        .eq('household_id', householdId)
-        .is('accepted_at', null)
-        .order('created_at', { ascending: false }),
-    ])
-
-    const firstError = membersRes.error ?? invitesRes.error
-    if (firstError) {
-      setError(firstError.message)
-      return
+    try {
+      const [memberList, inviteList] = await Promise.all([
+        api.getMembers(householdId),
+        api.getInvites(householdId),
+      ])
+      setAdminMembers(memberList)
+      setAdminInvites(inviteList)
+    } catch (err) {
+      setError((err as Error).message)
     }
-
-    setAdminMembers((membersRes.data ?? []) as Member[])
-    setAdminInvites((invitesRes.data ?? []) as Invite[])
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    if (isDemoMode) {
+      setIsDemoMode(false)
+      setUserEmail('')
+      setMemberships([])
+      setActiveHouseholdId('')
+      setShoppingItems([])
+      setRecipes([])
+      setMealPlan([])
+      setTodos([])
+      setMembers([])
+      setStatus('')
+      return
+    }
+    api.auth.signOut()
+    setUserId(null)
+    setUserEmail('')
     setStatus('Signed out.')
   }
 
-  if (loadingAuth) {
-    return <div className="shell">Loading...</div>
-  }
+  if (loadingAuth) return <div className="shell">Loading...</div>
 
-  if (!userId) {
+  if (!userId && !isDemoMode) {
     return (
       <AuthPanel
         setError={setError}
         setStatus={setStatus}
-        onSignedIn={() => {
+        onSignedIn={(session) => {
+          setUserId(session.userId)
+          setUserEmail(session.email)
+          setSystemRole(session.systemRole)
           setError('')
         }}
+        onEnterDemo={enterDemoMode}
       />
     )
   }
@@ -328,13 +329,9 @@ function App() {
     return (
       <div className="shell">
         <header className="hero">
-          <h1>NineWest Household Hub</h1>
-          <p>
-            Signed in as <strong>{userEmail}</strong>. You do not have household access yet.
-          </p>
-          <button className="ghost" type="button" onClick={signOut}>
-            Sign out
-          </button>
+          <h1>Nestly</h1>
+          <p>Signed in as <strong>{userEmail}</strong>. You do not have household access yet.</p>
+          <button className="ghost" type="button" onClick={signOut}>Sign out</button>
         </header>
         <StatusBar error={error} status={status} />
       </div>
@@ -346,39 +343,28 @@ function App() {
       <header className="hero">
         <div>
           <h1>{getHouseholdName(activeMembership) ?? 'Household'}</h1>
-          <p>
-            {hasMembership
-              ? `Signed in as ${userEmail}`
-              : `Signed in as ${userEmail}`}
-          </p>
+          <p>{isDemoMode ? 'Demo mode — changes are not saved' : `Signed in as ${userEmail}`}</p>
         </div>
 
         <div className="row">
           {hasMembership ? (
-            <select
-              value={activeHouseholdId}
-              onChange={(event) => setActiveHouseholdId(event.target.value)}
-            >
-              {memberships.map((membership) => (
-                <option key={membership.household_id} value={membership.household_id}>
-                  {getHouseholdName(membership) ?? 'Unnamed'}
+            <select value={activeHouseholdId} onChange={(e) => setActiveHouseholdId(e.target.value)}>
+              {memberships.map((m) => (
+                <option key={m.household_id} value={m.household_id}>
+                  {getHouseholdName(m) ?? 'Unnamed'}
                 </option>
               ))}
             </select>
           ) : null}
 
-          <select
-            value={themeMode}
-            onChange={(event) => setThemeMode(event.target.value as ThemeMode)}
-            aria-label="Theme mode"
-          >
+          <select value={themeMode} onChange={(e) => setThemeMode(e.target.value as ThemeMode)} aria-label="Theme mode">
             <option value="system">System</option>
             <option value="light">Light</option>
             <option value="dark">Dark</option>
           </select>
 
           <button className="ghost" type="button" onClick={signOut}>
-            Sign out
+            {isDemoMode ? 'Exit Demo' : 'Sign out'}
           </button>
         </div>
       </header>
@@ -386,52 +372,15 @@ function App() {
       <nav className="tabs">
         {hasMembership ? (
           <>
-            <button
-              className={activeTab === 'shopping' ? 'active' : ''}
-              type="button"
-              onClick={() => setActiveTab('shopping')}
-            >
-              Shopping
-            </button>
-            <button
-              className={activeTab === 'recipes' ? 'active' : ''}
-              type="button"
-              onClick={() => setActiveTab('recipes')}
-            >
-              Recipes
-            </button>
-            <button
-              className={activeTab === 'meal-plan' ? 'active' : ''}
-              type="button"
-              onClick={() => setActiveTab('meal-plan')}
-            >
-              Meal Plan
-            </button>
-            <button
-              className={activeTab === 'todos' ? 'active' : ''}
-              type="button"
-              onClick={() => setActiveTab('todos')}
-            >
-              To-Do's
-            </button>
-            <button
-              className={activeTab === 'group' ? 'active' : ''}
-              type="button"
-              onClick={() => setActiveTab('group')}
-            >
-              Group
-            </button>
+            <button className={activeTab === 'shopping' ? 'active' : ''} type="button" onClick={() => setActiveTab('shopping')}>Shopping</button>
+            <button className={activeTab === 'recipes' ? 'active' : ''} type="button" onClick={() => setActiveTab('recipes')}>Recipes</button>
+            <button className={activeTab === 'meal-plan' ? 'active' : ''} type="button" onClick={() => setActiveTab('meal-plan')}>Meal Plan</button>
+            <button className={activeTab === 'todos' ? 'active' : ''} type="button" onClick={() => setActiveTab('todos')}>To-Do's</button>
+            <button className={activeTab === 'group' ? 'active' : ''} type="button" onClick={() => setActiveTab('group')}>Group</button>
           </>
         ) : null}
-
         {isSystemAdmin ? (
-          <button
-            className={activeTab === 'admin-suite' ? 'active' : ''}
-            type="button"
-            onClick={() => setActiveTab('admin-suite')}
-          >
-            Admin Suite
-          </button>
+          <button className={activeTab === 'admin-suite' ? 'active' : ''} type="button" onClick={() => setActiveTab('admin-suite')}>Admin Suite</button>
         ) : null}
       </nav>
 
@@ -441,6 +390,8 @@ function App() {
         <ShoppingSection
           householdId={activeHouseholdId}
           items={shoppingItems}
+          isDemoMode={isDemoMode}
+          onDemoUpdate={setShoppingItems}
           onRefresh={() => loadHouseholdData(activeHouseholdId)}
           onError={setError}
         />
@@ -450,6 +401,8 @@ function App() {
         <RecipesSection
           householdId={activeHouseholdId}
           recipes={recipes}
+          isDemoMode={isDemoMode}
+          onDemoUpdate={setRecipes}
           onRefresh={() => loadHouseholdData(activeHouseholdId)}
           onError={setError}
         />
@@ -460,6 +413,8 @@ function App() {
           householdId={activeHouseholdId}
           recipes={recipes}
           entries={mealPlan}
+          isDemoMode={isDemoMode}
+          onDemoUpdate={setMealPlan}
           onRefresh={() => loadHouseholdData(activeHouseholdId)}
           onError={setError}
         />
@@ -469,6 +424,8 @@ function App() {
         <TodoSection
           householdId={activeHouseholdId}
           todos={todos}
+          isDemoMode={isDemoMode}
+          onDemoUpdate={setTodos}
           onRefresh={() => loadHouseholdData(activeHouseholdId)}
           onError={setError}
         />
@@ -484,9 +441,7 @@ function App() {
           selectedInvites={adminInvites}
           onSelectHousehold={setAdminHouseholdId}
           onRefreshHouseholds={loadAdminHouseholds}
-          onRefreshSelected={
-            adminHouseholdId ? () => loadAdminHouseholdData(adminHouseholdId) : async () => undefined
-          }
+          onRefreshSelected={adminHouseholdId ? () => loadAdminHouseholdData(adminHouseholdId) : async () => undefined}
           onError={setError}
           onStatus={setStatus}
         />
@@ -501,10 +456,12 @@ function AuthPanel({
   setError,
   setStatus,
   onSignedIn,
+  onEnterDemo,
 }: {
-  setError: (value: string) => void
-  setStatus: (value: string) => void
-  onSignedIn: () => void
+  setError: (v: string) => void
+  setStatus: (v: string) => void
+  onSignedIn: (session: api.SessionUser) => void
+  onEnterDemo: () => void
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -515,103 +472,45 @@ function AuthPanel({
   const signIn = async (event: FormEvent) => {
     event.preventDefault()
     setError('')
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (signInError) {
-      setError(signInError.message)
-      return
+    try {
+      const session = await api.auth.signIn(email, password)
+      onSignedIn(session)
+      setStatus('Signed in successfully.')
+    } catch (err) {
+      setError((err as Error).message)
     }
-
-    onSignedIn()
-    setStatus('Signed in successfully.')
   }
 
   const acceptInvite = async (event: FormEvent) => {
     event.preventDefault()
     setError('')
-
-    if (!inviteToken) {
-      setError('Invite token is required to join a household.')
-      return
+    if (!inviteToken) { setError('Invite token is required.'); return }
+    try {
+      const session = await api.auth.signUp(email, password, inviteToken)
+      onSignedIn(session)
+      setStatus('Invite accepted. You now have household access.')
+      const url = new URL(window.location.href)
+      url.searchParams.delete('invite')
+      window.history.replaceState({}, '', url.toString())
+    } catch (err) {
+      setError((err as Error).message)
     }
-
-    let signedIn = false
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (!signInError) {
-      signedIn = true
-    } else {
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-      })
-
-      if (signUpError) {
-        setError(signUpError.message)
-        return
-      }
-
-      signedIn = Boolean(signUpData.session)
-
-      if (!signedIn) {
-        setStatus('Account created. Complete email confirmation, then sign in and accept invite again.')
-        return
-      }
-    }
-
-    if (!signedIn) {
-      setError('Unable to authenticate while accepting invite.')
-      return
-    }
-
-    const { error: rpcError } = await supabase.rpc('accept_household_invite', {
-      p_invite_token: inviteToken,
-    })
-
-    if (rpcError) {
-      setError(rpcError.message)
-      return
-    }
-
-    onSignedIn()
-    setStatus('Invite accepted. You now have household access.')
-    const url = new URL(window.location.href)
-    url.searchParams.delete('invite')
-    window.history.replaceState({}, '', url.toString())
   }
 
   return (
     <div className="shell auth-shell">
       <header className="hero">
-        <h1>NineWest Household Hub</h1>
-        <p>Invite-only household planning for shopping, recipes, meals, and recurring todos.</p>
+        <div>
+          <h1>Nestly</h1>
+          <p>Invite-only household planning for shopping, recipes, meals, and recurring todos.</p>
+        </div>
       </header>
 
       <section className="card">
         <h2>Sign In</h2>
         <form onSubmit={signIn} className="stack">
-          <input
-            type="email"
-            required
-            placeholder="Email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-          <input
-            type="password"
-            required
-            placeholder="Password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
+          <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input type="password" required placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <button type="submit">Sign In</button>
         </form>
       </section>
@@ -619,44 +518,30 @@ function AuthPanel({
       <section className="card">
         <h2>Accept Invite</h2>
         <form onSubmit={acceptInvite} className="stack">
-          <input
-            type="email"
-            required
-            placeholder="Email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-          <input
-            type="password"
-            required
-            placeholder="Choose a password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-          <input
-            type="text"
-            required
-            placeholder="Invite token"
-            value={inviteToken}
-            onChange={(event) => setInviteToken(event.target.value)}
-          />
+          <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input type="password" required placeholder="Choose a password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input type="text" required placeholder="Invite token" value={inviteToken} onChange={(e) => setInviteToken(e.target.value)} />
           <button type="submit">Accept Invite</button>
         </form>
+      </section>
+
+      <section className="card">
+        <h2>Try Demo</h2>
+        <p style={{ margin: '0 0 1rem', color: 'var(--ink-muted)', fontSize: '0.875rem' }}>
+          Explore the app with sample data. No account needed — changes won't be saved.
+        </p>
+        <button type="button" onClick={onEnterDemo}>Enter Demo Mode</button>
       </section>
     </div>
   )
 }
 
 function ShoppingSection({
-  householdId,
-  items,
-  onRefresh,
-  onError,
+  householdId, items, isDemoMode, onDemoUpdate, onRefresh, onError,
 }: {
-  householdId: string
-  items: ShoppingItem[]
-  onRefresh: () => Promise<void>
-  onError: (value: string) => void
+  householdId: string; items: ShoppingItem[]; isDemoMode: boolean
+  onDemoUpdate: (items: ShoppingItem[]) => void
+  onRefresh: () => Promise<void>; onError: (v: string) => void
 }) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [title, setTitle] = useState('')
@@ -665,97 +550,73 @@ function ShoppingSection({
   const addItem = async (event: FormEvent) => {
     event.preventDefault()
     const trimmed = title.trim()
-    if (!trimmed) {
-      return
+    if (!trimmed) return
+    if (isDemoMode) {
+      onDemoUpdate([{ id: crypto.randomUUID(), household_id: householdId, title: trimmed, quantity: quantity.trim() || null, is_complete: false, created_at: '' }, ...items])
+      setTitle(''); setQuantity(''); setShowAddModal(false); return
     }
-
-    const { error } = await supabase.from('shopping_items').insert({
-      household_id: householdId,
-      title: trimmed,
-      quantity: quantity.trim() || null,
-    })
-
-    if (error) {
-      onError(error.message)
-      return
-    }
-
-    setTitle('')
-    setQuantity('')
-    setShowAddModal(false)
-    await onRefresh()
+    try {
+      await api.addShoppingItem(householdId, trimmed, quantity.trim() || undefined)
+      setTitle(''); setQuantity(''); setShowAddModal(false)
+      await onRefresh()
+    } catch (err) { onError((err as Error).message) }
   }
 
   const toggle = async (item: ShoppingItem) => {
-    const { error } = await supabase
-      .from('shopping_items')
-      .update({ is_complete: !item.is_complete })
-      .eq('id', item.id)
-
-    if (error) {
-      onError(error.message)
-      return
-    }
-
-    await onRefresh()
+    if (isDemoMode) { onDemoUpdate(items.map((i) => i.id === item.id ? { ...i, is_complete: !i.is_complete } : i)); return }
+    try { await api.toggleShoppingItem(item.id, !item.is_complete); await onRefresh() }
+    catch (err) { onError((err as Error).message) }
   }
 
   const remove = async (id: string) => {
-    const { error } = await supabase.from('shopping_items').delete().eq('id', id)
-    if (error) {
-      onError(error.message)
-      return
-    }
-    await onRefresh()
+    if (isDemoMode) { onDemoUpdate(items.filter((i) => i.id !== id)); return }
+    try { await api.deleteShoppingItem(id); await onRefresh() }
+    catch (err) { onError((err as Error).message) }
   }
+
+  const clearCompleted = async () => {
+    const completedIds = items.filter((i) => i.is_complete).map((i) => i.id)
+    if (completedIds.length === 0) return
+    if (isDemoMode) { onDemoUpdate(items.filter((i) => !i.is_complete)); return }
+    try { await api.clearCompletedItems(householdId); await onRefresh() }
+    catch (err) { onError((err as Error).message) }
+  }
+
+  const completedCount = items.filter((i) => i.is_complete).length
 
   return (
     <section className="card">
       <div className="row section-head">
         <h2>Shopping List</h2>
-        <button type="button" onClick={() => setShowAddModal(true)}>
-          Add Item
-        </button>
+        <div className="row">
+          {completedCount > 0 ? (
+            <button type="button" className="ghost" onClick={clearCompleted}>Clear ticked ({completedCount})</button>
+          ) : null}
+          <button type="button" onClick={() => setShowAddModal(true)}>Add Item</button>
+        </div>
       </div>
       <ul className="list">
         {items.map((item) => (
           <li key={item.id} className={item.is_complete ? 'done' : ''}>
             <label>
               <input type="checkbox" checked={item.is_complete} onChange={() => toggle(item)} />
-              {item.title}
-              {item.quantity ? ` (${item.quantity})` : ''}
+              {item.title}{item.quantity ? ` (${item.quantity})` : ''}
             </label>
-            <button type="button" className="ghost" onClick={() => remove(item.id)}>
-              Remove
-            </button>
+            <button type="button" className="ghost" onClick={() => remove(item.id)}>Remove</button>
           </li>
         ))}
       </ul>
 
       {showAddModal ? (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>Add Shopping Item</h3>
             <form className="stack" onSubmit={addItem}>
-              <input
-                type="text"
-                autoFocus
-                placeholder="Add item"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                required
-              />
-              <input
-                type="text"
-                placeholder="Qty (optional)"
-                value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
-              />
+              <input type="text" autoFocus placeholder="Add item" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <input type="text" placeholder="Qty (optional)" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
               <div className="row">
                 <button type="submit">Add</button>
-                <button type="button" className="ghost" onClick={() => setShowAddModal(false)}>
-                  Cancel
-                </button>
+                <button type="button" className="ghost" onClick={() => setShowAddModal(false)}>Cancel</button>
               </div>
             </form>
           </div>
@@ -766,15 +627,11 @@ function ShoppingSection({
 }
 
 function RecipesSection({
-  householdId,
-  recipes,
-  onRefresh,
-  onError,
+  householdId, recipes, isDemoMode, onDemoUpdate, onRefresh, onError,
 }: {
-  householdId: string
-  recipes: Recipe[]
-  onRefresh: () => Promise<void>
-  onError: (value: string) => void
+  householdId: string; recipes: Recipe[]; isDemoMode: boolean
+  onDemoUpdate: (recipes: Recipe[]) => void
+  onRefresh: () => Promise<void>; onError: (v: string) => void
 }) {
   const [title, setTitle] = useState('')
   const [sourceUrl, setSourceUrl] = useState('')
@@ -784,6 +641,7 @@ function RecipesSection({
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [search, setSearch] = useState('')
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
+  const [servingScales, setServingScales] = useState<Record<string, number>>({})
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editSourceUrl, setEditSourceUrl] = useState('')
@@ -792,60 +650,44 @@ function RecipesSection({
   const [editMethod, setEditMethod] = useState('')
 
   const filteredRecipes = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    if (!query) {
-      return recipes
-    }
-
-    return recipes.filter((recipe) => recipe.title.toLowerCase().includes(query))
+    const q = search.trim().toLowerCase()
+    return q ? recipes.filter((r) => r.title.toLowerCase().includes(q)) : recipes
   }, [recipes, search])
 
   const addRecipe = async (event: FormEvent) => {
     event.preventDefault()
-    if (!title.trim()) {
-      return
-    }
-
+    if (!title.trim()) return
     const parsedServings = Number(servings)
-
-    const { error } = await supabase.from('recipes').insert({
-      household_id: householdId,
-      title: title.trim(),
-      source_url: sourceUrl.trim() || null,
-      servings: Number.isFinite(parsedServings) && parsedServings > 0 ? parsedServings : null,
-      ingredients: ingredients.trim() || null,
-      method: method.trim() || null,
-      notes: method.trim() || null,
-    })
-
-    if (error) {
-      onError(error.message)
-      return
+    const srv = Number.isFinite(parsedServings) && parsedServings > 0 ? parsedServings : null
+    if (isDemoMode) {
+      onDemoUpdate([{ id: crypto.randomUUID(), household_id: householdId, title: title.trim(), source_url: sourceUrl.trim() || null, servings: srv, ingredients: ingredients.trim() || null, method: method.trim() || null, notes: null, created_at: '' }, ...recipes])
+      setTitle(''); setSourceUrl(''); setServings(''); setIngredients(''); setMethod(''); setShowCreateModal(false); return
     }
-
-    setTitle('')
-    setSourceUrl('')
-    setServings('')
-    setIngredients('')
-    setMethod('')
-    setShowCreateModal(false)
-    await onRefresh()
+    try {
+      await api.addRecipe({ householdId, title: title.trim(), servings: srv, source_url: sourceUrl.trim() || null, ingredients: ingredients.trim() || null, method: method.trim() || null })
+      setTitle(''); setSourceUrl(''); setServings(''); setIngredients(''); setMethod(''); setShowCreateModal(false)
+      await onRefresh()
+    } catch (err) { onError((err as Error).message) }
   }
 
   const remove = async (id: string) => {
-    const { error } = await supabase.from('recipes').delete().eq('id', id)
-    if (error) {
-      onError(error.message)
-      return
-    }
-    await onRefresh()
+    if (isDemoMode) { onDemoUpdate(recipes.filter((r) => r.id !== id)); return }
+    try { await api.deleteRecipe(id); await onRefresh() } catch (err) { onError((err as Error).message) }
   }
 
   const toggleExpanded = (id: string) => {
-    setExpandedIds((current) => ({
-      ...current,
-      [id]: !current[id],
-    }))
+    setExpandedIds((current) => {
+      const next = { ...current, [id]: !current[id] }
+      if (next[id]) {
+        const recipe = recipes.find((r) => r.id === id)
+        if (recipe?.servings) setServingScales((s) => ({ ...s, [id]: s[id] ?? recipe.servings! }))
+      }
+      return next
+    })
+  }
+
+  const adjustServings = (id: string, delta: number, base: number) => {
+    setServingScales((s) => ({ ...s, [id]: Math.max(1, (s[id] ?? base) + delta) }))
   }
 
   const openEditModal = (recipe: Recipe) => {
@@ -857,53 +699,28 @@ function RecipesSection({
     setEditMethod(recipe.method ?? recipe.notes ?? '')
   }
 
-  const closeEditModal = () => {
-    setEditingRecipe(null)
-  }
-
   const updateRecipe = async (event: FormEvent) => {
     event.preventDefault()
-    if (!editingRecipe || !editTitle.trim()) {
-      return
-    }
-
+    if (!editingRecipe || !editTitle.trim()) return
     const parsedServings = Number(editServings)
-
-    const { error } = await supabase
-      .from('recipes')
-      .update({
-        title: editTitle.trim(),
-        source_url: editSourceUrl.trim() || null,
-        servings: Number.isFinite(parsedServings) && parsedServings > 0 ? parsedServings : null,
-        ingredients: editIngredients.trim() || null,
-        method: editMethod.trim() || null,
-        notes: editMethod.trim() || null,
-      })
-      .eq('id', editingRecipe.id)
-
-    if (error) {
-      onError(error.message)
-      return
+    const srv = Number.isFinite(parsedServings) && parsedServings > 0 ? parsedServings : null
+    if (isDemoMode) {
+      onDemoUpdate(recipes.map((r) => r.id === editingRecipe.id ? { ...r, title: editTitle.trim(), source_url: editSourceUrl.trim() || null, servings: srv, ingredients: editIngredients.trim() || null, method: editMethod.trim() || null } : r))
+      setEditingRecipe(null); return
     }
-
-    closeEditModal()
-    await onRefresh()
+    try {
+      await api.updateRecipe(editingRecipe.id, { title: editTitle.trim(), servings: srv, source_url: editSourceUrl.trim() || null, ingredients: editIngredients.trim() || null, method: editMethod.trim() || null })
+      setEditingRecipe(null); await onRefresh()
+    } catch (err) { onError((err as Error).message) }
   }
 
   return (
     <section className="card">
       <div className="row section-head">
         <h2>Recipes</h2>
-        <button type="button" onClick={() => setShowCreateModal(true)}>
-          Add Recipe
-        </button>
+        <button type="button" onClick={() => setShowCreateModal(true)}>Add Recipe</button>
       </div>
-      <input
-        type="text"
-        placeholder="Search recipes by name"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-      />
+      <input type="text" placeholder="Search recipes by name" value={search} onChange={(e) => setSearch(e.target.value)} />
       <ul className="list">
         {filteredRecipes.map((recipe) => {
           const isExpanded = Boolean(expandedIds[recipe.id])
@@ -915,39 +732,36 @@ function RecipesSection({
                   {recipe.servings ? <span>Serves {recipe.servings}</span> : null}
                 </div>
                 {isExpanded ? (
-                   <div className="recipe-details">
-                     {recipe.source_url ? (
-                       <p>
-                         <strong>Source:</strong> <a href={recipe.source_url}>Open Link</a>
-                       </p>
-                     ) : null}
-                     {recipe.ingredients ? (
-                       <p>
-                         <strong>Ingredients:</strong>
-                         <br />
-                         <span className="recipe-preformatted">{recipe.ingredients}</span>
-                       </p>
-                     ) : null}
-                     {recipe.method || recipe.notes ? (
-                       <p>
-                         <strong>Method:</strong>
-                         <br />
-                         <span className="recipe-preformatted">{recipe.method ?? recipe.notes}</span>
-                       </p>
-                     ) : null}
-                   </div>
-                 ) : null}
+                  <div className="recipe-details">
+                    {recipe.source_url ? <p><strong>Source:</strong> <a href={recipe.source_url}>Open Link</a></p> : null}
+                    {recipe.servings ? (() => {
+                      const current = servingScales[recipe.id] ?? recipe.servings
+                      const factor = current / recipe.servings
+                      return (
+                        <div className="serving-scaler">
+                          <span className="serving-scaler-label">Serves</span>
+                          <button type="button" className="ghost serving-scaler-btn" onClick={() => adjustServings(recipe.id, -1, recipe.servings!)}>−</button>
+                          <span className="serving-scaler-count">{current}</span>
+                          <button type="button" className="ghost serving-scaler-btn" onClick={() => adjustServings(recipe.id, +1, recipe.servings!)}>+</button>
+                          {factor !== 1 ? (
+                            <button type="button" className="ghost serving-scaler-reset" onClick={() => setServingScales((s) => ({ ...s, [recipe.id]: recipe.servings! }))}>Reset</button>
+                          ) : null}
+                        </div>
+                      )
+                    })() : null}
+                    {recipe.ingredients ? (() => {
+                      const current = servingScales[recipe.id] ?? recipe.servings ?? 1
+                      const factor = recipe.servings ? current / recipe.servings : 1
+                      return <p><strong>Ingredients:</strong><br /><span className="recipe-preformatted">{scaleIngredients(recipe.ingredients, factor)}</span></p>
+                    })() : null}
+                    {recipe.method || recipe.notes ? <p><strong>Method:</strong><br /><span className="recipe-preformatted">{recipe.method ?? recipe.notes}</span></p> : null}
+                  </div>
+                ) : null}
               </div>
               <div className="recipe-actions">
-                <button type="button" className="ghost" onClick={() => toggleExpanded(recipe.id)}>
-                  {isExpanded ? 'Collapse' : 'Expand'}
-                </button>
-                <button type="button" className="ghost" onClick={() => openEditModal(recipe)}>
-                  Edit
-                </button>
-                <button type="button" className="ghost" onClick={() => remove(recipe.id)}>
-                  Remove
-                </button>
+                <button type="button" className="ghost" onClick={() => toggleExpanded(recipe.id)}>{isExpanded ? 'Collapse' : 'Expand'}</button>
+                <button type="button" className="ghost" onClick={() => openEditModal(recipe)}>Edit</button>
+                <button type="button" className="ghost" onClick={() => remove(recipe.id)}>Remove</button>
               </div>
             </li>
           )
@@ -957,49 +771,19 @@ function RecipesSection({
 
       {showCreateModal ? (
         <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>Add Recipe</h3>
             <form className="stack" onSubmit={addRecipe}>
               <div className="row">
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="Recipe name"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  required
-                />
-                <input
-                  type="number"
-                  min={1}
-                  placeholder="Servings"
-                  value={servings}
-                  onChange={(event) => setServings(event.target.value)}
-                />
+                <input type="text" autoFocus placeholder="Recipe name" value={title} onChange={(e) => setTitle(e.target.value)} required />
+                <input type="number" min={1} placeholder="Servings" value={servings} onChange={(e) => setServings(e.target.value)} />
               </div>
-              <input
-                type="url"
-                placeholder="Source URL"
-                value={sourceUrl}
-                onChange={(event) => setSourceUrl(event.target.value)}
-              />
-              <textarea
-                placeholder="Ingredients (one per line)"
-                value={ingredients}
-                onChange={(event) => setIngredients(event.target.value)}
-                rows={4}
-              />
-              <textarea
-                placeholder="Method"
-                value={method}
-                onChange={(event) => setMethod(event.target.value)}
-                rows={3}
-              />
+              <input type="url" placeholder="Source URL" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
+              <textarea placeholder="Ingredients (one per line)" value={ingredients} onChange={(e) => setIngredients(e.target.value)} rows={4} />
+              <textarea placeholder="Method" value={method} onChange={(e) => setMethod(e.target.value)} rows={3} />
               <div className="row">
                 <button type="submit">Save Recipe</button>
-                <button type="button" className="ghost" onClick={() => setShowCreateModal(false)}>
-                  Cancel
-                </button>
+                <button type="button" className="ghost" onClick={() => setShowCreateModal(false)}>Cancel</button>
               </div>
             </form>
           </div>
@@ -1007,50 +791,20 @@ function RecipesSection({
       ) : null}
 
       {editingRecipe ? (
-        <div className="modal-overlay" onClick={closeEditModal}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setEditingRecipe(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>Edit Recipe</h3>
             <form className="stack" onSubmit={updateRecipe}>
               <div className="row">
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="Recipe name"
-                  value={editTitle}
-                  onChange={(event) => setEditTitle(event.target.value)}
-                  required
-                />
-                <input
-                  type="number"
-                  min={1}
-                  placeholder="Servings"
-                  value={editServings}
-                  onChange={(event) => setEditServings(event.target.value)}
-                />
+                <input type="text" autoFocus placeholder="Recipe name" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
+                <input type="number" min={1} placeholder="Servings" value={editServings} onChange={(e) => setEditServings(e.target.value)} />
               </div>
-              <input
-                type="url"
-                placeholder="Source URL"
-                value={editSourceUrl}
-                onChange={(event) => setEditSourceUrl(event.target.value)}
-              />
-              <textarea
-                placeholder="Ingredients (one per line)"
-                value={editIngredients}
-                onChange={(event) => setEditIngredients(event.target.value)}
-                rows={4}
-              />
-              <textarea
-                placeholder="Method"
-                value={editMethod}
-                onChange={(event) => setEditMethod(event.target.value)}
-                rows={3}
-              />
+              <input type="url" placeholder="Source URL" value={editSourceUrl} onChange={(e) => setEditSourceUrl(e.target.value)} />
+              <textarea placeholder="Ingredients (one per line)" value={editIngredients} onChange={(e) => setEditIngredients(e.target.value)} rows={4} />
+              <textarea placeholder="Method" value={editMethod} onChange={(e) => setEditMethod(e.target.value)} rows={3} />
               <div className="row">
                 <button type="submit">Save Changes</button>
-                <button type="button" className="ghost" onClick={closeEditModal}>
-                  Cancel
-                </button>
+                <button type="button" className="ghost" onClick={() => setEditingRecipe(null)}>Cancel</button>
               </div>
             </form>
           </div>
@@ -1061,155 +815,75 @@ function RecipesSection({
 }
 
 function MealPlanSection({
-  householdId,
-  recipes,
-  entries,
-  onRefresh,
-  onError,
+  householdId, recipes, entries, isDemoMode, onDemoUpdate, onRefresh, onError,
 }: {
-  householdId: string
-  recipes: Recipe[]
-  entries: MealPlanEntry[]
-  onRefresh: () => Promise<void>
-  onError: (value: string) => void
+  householdId: string; recipes: Recipe[]; entries: MealPlanEntry[]; isDemoMode: boolean
+  onDemoUpdate: (entries: MealPlanEntry[]) => void
+  onRefresh: () => Promise<void>; onError: (v: string) => void
 }) {
   const [weekOffset, setWeekOffset] = useState(0)
-  const [editingSlot, setEditingSlot] = useState<{
-    mealDate: string
-    mealType: (typeof mealTypes)[number]
-  } | null>(null)
+  const [editingSlot, setEditingSlot] = useState<{ mealDate: string; mealType: (typeof mealTypes)[number] } | null>(null)
   const [mealText, setMealText] = useState('')
 
-  const weekStart = useMemo(
-    () => dayjs().startOf('week').add(weekOffset, 'week'),
-    [weekOffset],
-  )
-  const weekDays = useMemo(
-    () => Array.from({ length: 7 }, (_, index) => weekStart.add(index, 'day')),
-    [weekStart],
-  )
+  const weekStart = useMemo(() => dayjs().startOf('week').add(weekOffset, 'week'), [weekOffset])
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => weekStart.add(i, 'day')), [weekStart])
 
   const addMeal = async (event: FormEvent) => {
     event.preventDefault()
-    if (!editingSlot) {
-      return
-    }
-
+    if (!editingSlot) return
     const title = mealText.trim()
-    if (!title) {
-      return
+    if (!title) return
+    const selectedRecipe = recipes.find((r) => r.title.toLowerCase() === title.toLowerCase())
+    if (isDemoMode) {
+      const existing = entries.find((e) => e.meal_date === editingSlot.mealDate && e.meal_type === editingSlot.mealType)
+      const updated: MealPlanEntry = { id: existing?.id ?? crypto.randomUUID(), household_id: householdId, meal_date: editingSlot.mealDate, meal_type: editingSlot.mealType, recipe_id: selectedRecipe?.id ?? null, recipe_title: selectedRecipe?.title ?? title, created_at: '' }
+      onDemoUpdate(existing ? entries.map((e) => e.id === existing.id ? updated : e) : [...entries, updated])
+      setMealText(''); setEditingSlot(null); return
     }
-
-    const selectedRecipe = recipes.find(
-      (recipe) => recipe.title.toLowerCase() === title.toLowerCase(),
-    )
-
-    const { error } = await supabase.from('meal_plan_entries').upsert(
-      {
-        household_id: householdId,
-        meal_date: editingSlot.mealDate,
-        meal_type: editingSlot.mealType,
-        recipe_id: selectedRecipe?.id ?? null,
-        recipe_title: selectedRecipe?.title ?? title,
-      },
-      { onConflict: 'household_id,meal_date,meal_type' },
-    )
-
-    if (error) {
-      onError(error.message)
-      return
-    }
-
-    setMealText('')
-    setEditingSlot(null)
-    await onRefresh()
+    try {
+      await api.upsertMealEntry({ householdId, meal_date: editingSlot.mealDate, meal_type: editingSlot.mealType, recipe_id: selectedRecipe?.id ?? null, recipe_title: selectedRecipe?.title ?? title })
+      setMealText(''); setEditingSlot(null); await onRefresh()
+    } catch (err) { onError((err as Error).message) }
   }
 
   const remove = async (id: string) => {
-    const { error } = await supabase.from('meal_plan_entries').delete().eq('id', id)
-    if (error) {
-      onError(error.message)
-      return
-    }
-    await onRefresh()
+    if (isDemoMode) { onDemoUpdate(entries.filter((e) => e.id !== id)); return }
+    try { await api.deleteMealEntry(id); await onRefresh() } catch (err) { onError((err as Error).message) }
   }
 
-  const openEditor = (
-    slot: { mealDate: string; mealType: (typeof mealTypes)[number] },
-    initialText: string,
-  ) => {
-    setEditingSlot(slot)
-    setMealText(initialText)
-  }
-
-  const closeEditor = () => {
-    setEditingSlot(null)
-    setMealText('')
-  }
+  const openEditor = (slot: { mealDate: string; mealType: (typeof mealTypes)[number] }, text: string) => { setEditingSlot(slot); setMealText(text) }
+  const closeEditor = () => { setEditingSlot(null); setMealText('') }
 
   return (
     <section className="card">
       <h2>Meal Plan</h2>
       <div className="row week-controls">
-        <button type="button" className="ghost" onClick={() => setWeekOffset((value) => value - 1)}>
-          Previous Week
-        </button>
-        <p>
-          {weekStart.format('D MMM')} - {weekStart.add(6, 'day').format('D MMM')}
-        </p>
-        <button type="button" className="ghost" onClick={() => setWeekOffset(0)}>
-          This Week
-        </button>
-        <button type="button" className="ghost" onClick={() => setWeekOffset((value) => value + 1)}>
-          Next Week
-        </button>
+        <button type="button" className="ghost" onClick={() => setWeekOffset((v) => v - 1)}>Previous Week</button>
+        <p>{weekStart.format('D MMM')} - {weekStart.add(6, 'day').format('D MMM')}</p>
+        <button type="button" className="ghost" onClick={() => setWeekOffset(0)}>This Week</button>
+        <button type="button" className="ghost" onClick={() => setWeekOffset((v) => v + 1)}>Next Week</button>
       </div>
-
       <div className="meal-week-grid">
         {weekDays.map((day) => {
-          const dayLabel = day.format('ddd')
           const dayKey = day.format('YYYY-MM-DD')
           return (
             <article key={dayKey} className="meal-day-block">
-              <header>
-                <strong>{dayLabel}</strong>
-                <span>{day.format('D MMM')}</span>
-              </header>
+              <header><strong>{day.format('ddd')}</strong><span>{day.format('D MMM')}</span></header>
               {mealTypes.map((type) => {
-                const entry = entries.find(
-                  (mealEntry) => mealEntry.meal_date === dayKey && mealEntry.meal_type === type,
-                )
+                const entry = entries.find((e) => e.meal_date === dayKey && e.meal_type === type)
                 return (
                   <div key={`${dayKey}-${type}`} className="meal-slot">
                     <p className="meal-slot-title">{type}</p>
                     {entry ? (
                       <div className="meal-slot-content">
                         <span>{entry.recipe_title ?? 'Unplanned meal'}</span>
-                        <button
-                          type="button"
-                          className="ghost"
-                          onClick={() => {
-                            openEditor({ mealDate: dayKey, mealType: type }, entry.recipe_title ?? '')
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button type="button" className="ghost" onClick={() => remove(entry.id)}>
-                          Remove
-                        </button>
+                        <button type="button" className="ghost" onClick={() => openEditor({ mealDate: dayKey, mealType: type }, entry.recipe_title ?? '')}>Edit</button>
+                        <button type="button" className="ghost" onClick={() => remove(entry.id)}>Remove</button>
                       </div>
                     ) : (
                       <div className="meal-slot-content">
                         <p className="meal-empty">Not planned</p>
-                        <button
-                          type="button"
-                          className="ghost"
-                          onClick={() => {
-                            openEditor({ mealDate: dayKey, mealType: type }, '')
-                          }}
-                        >
-                          Add
-                        </button>
+                        <button type="button" className="ghost" onClick={() => openEditor({ mealDate: dayKey, mealType: type }, '')}>Add</button>
                       </div>
                     )}
                   </div>
@@ -1219,33 +893,16 @@ function MealPlanSection({
           )
         })}
       </div>
-
       {editingSlot ? (
         <div className="modal-overlay" onClick={closeEditor}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <h3>
-              Edit {editingSlot.mealType} {dayjs(editingSlot.mealDate).format('D MMM')}
-            </h3>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Edit {editingSlot.mealType} {dayjs(editingSlot.mealDate).format('D MMM')}</h3>
             <form className="stack" onSubmit={addMeal}>
-              <input
-                type="text"
-                list="recipe-suggestions"
-                autoFocus
-                placeholder="Type meal or recipe"
-                value={mealText}
-                onChange={(event) => setMealText(event.target.value)}
-                required
-              />
-              <datalist id="recipe-suggestions">
-                {recipes.map((recipe) => (
-                  <option key={recipe.id} value={recipe.title} />
-                ))}
-              </datalist>
+              <input type="text" list="recipe-suggestions" autoFocus placeholder="Type meal or recipe" value={mealText} onChange={(e) => setMealText(e.target.value)} required />
+              <datalist id="recipe-suggestions">{recipes.map((r) => <option key={r.id} value={r.title} />)}</datalist>
               <div className="row">
                 <button type="submit">Add</button>
-                <button type="button" className="ghost" onClick={closeEditor}>
-                  Cancel
-                </button>
+                <button type="button" className="ghost" onClick={closeEditor}>Cancel</button>
               </div>
             </form>
           </div>
@@ -1256,117 +913,76 @@ function MealPlanSection({
 }
 
 function TodoSection({
-  householdId,
-  todos,
-  onRefresh,
-  onError,
+  householdId, todos, isDemoMode, onDemoUpdate, onRefresh, onError,
 }: {
-  householdId: string
-  todos: TodoItem[]
-  onRefresh: () => Promise<void>
-  onError: (value: string) => void
+  householdId: string; todos: TodoItem[]; isDemoMode: boolean
+  onDemoUpdate: (todos: TodoItem[]) => void
+  onRefresh: () => Promise<void>; onError: (v: string) => void
 }) {
   const [showAddModal, setShowAddModal] = useState(false)
   const [targetList, setTargetList] = useState<'weekly' | 'adhoc'>('adhoc')
   const [title, setTitle] = useState('')
 
-  const weeklyTodos = todos.filter((todo) => todo.recurrence === 'weekly')
-  const adhocTodos = todos.filter((todo) => todo.recurrence !== 'weekly')
+  const weeklyTodos = todos.filter((t) => t.recurrence === 'weekly')
+  const adhocTodos = todos.filter((t) => t.recurrence !== 'weekly')
 
   useEffect(() => {
+    if (isDemoMode) return
     const maybeResetWeekly = async () => {
       const isSunday = dayjs().day() === 0
-      const hasCompletedWeekly = weeklyTodos.some((todo) => todo.is_complete)
+      const hasCompleted = weeklyTodos.some((t) => t.is_complete)
       const weekKey = dayjs().startOf('week').format('YYYY-MM-DD')
       const resetKey = `weekly-reset:${householdId}`
-      const alreadyResetThisWeek = window.localStorage.getItem(resetKey) === weekKey
-
-      if (!isSunday || !hasCompletedWeekly || alreadyResetThisWeek) {
-        return
-      }
-
-      const { error } = await supabase
-        .from('todos')
-        .update({ is_complete: false })
-        .eq('household_id', householdId)
-        .eq('recurrence', 'weekly')
-        .eq('is_complete', true)
-
-      if (error) {
-        onError(error.message)
-        return
-      }
-
-      window.localStorage.setItem(resetKey, weekKey)
-
-      await onRefresh()
+      if (!isSunday || !hasCompleted || localStorage.getItem(resetKey) === weekKey) return
+      try {
+        await api.resetWeeklyTodos(householdId)
+        localStorage.setItem(resetKey, weekKey)
+        await onRefresh()
+      } catch (err) { onError((err as Error).message) }
     }
-
     void maybeResetWeekly()
-  }, [householdId, weeklyTodos, onRefresh, onError])
+  }, [householdId, weeklyTodos, onRefresh, onError, isDemoMode])
 
-  const openAddModal = (listType: 'weekly' | 'adhoc') => {
-    setTargetList(listType)
-    setTitle('')
-    setShowAddModal(true)
-  }
+  const openAddModal = (list: 'weekly' | 'adhoc') => { setTargetList(list); setTitle(''); setShowAddModal(true) }
 
   const addTodo = async (event: FormEvent) => {
     event.preventDefault()
     const trimmed = title.trim()
-    if (!trimmed) {
-      return
+    if (!trimmed) return
+    const recurrence = targetList === 'weekly' ? 'weekly' : 'none'
+    if (isDemoMode) {
+      onDemoUpdate([...todos, { id: crypto.randomUUID(), household_id: householdId, title: trimmed, notes: null, due_date: null, recurrence, is_complete: false, created_at: '' }])
+      setTitle(''); setShowAddModal(false); return
     }
+    try {
+      await api.addTodo({ householdId, title: trimmed, recurrence })
+      setTitle(''); setShowAddModal(false); await onRefresh()
+    } catch (err) { onError((err as Error).message) }
+  }
 
-    const { error } = await supabase.from('todos').insert({
-      household_id: householdId,
-      title: trimmed,
-      recurrence: targetList === 'weekly' ? 'weekly' : 'none',
-      due_date: null,
-      notes: null,
-    })
-
-    if (error) {
-      onError(error.message)
-      return
-    }
-
-    setTitle('')
-    setShowAddModal(false)
-    await onRefresh()
+  const resetWeekly = async () => {
+    const toReset = weeklyTodos.filter((t) => t.is_complete)
+    if (toReset.length === 0) return
+    if (isDemoMode) { onDemoUpdate(todos.map((t) => t.recurrence === 'weekly' ? { ...t, is_complete: false } : t)); return }
+    try {
+      await Promise.all(toReset.map((t) => api.toggleTodo(t.id, false)))
+      await onRefresh()
+    } catch (err) { onError((err as Error).message) }
   }
 
   const toggleWeekly = async (todo: TodoItem) => {
-    const { error } = await supabase
-      .from('todos')
-      .update({ is_complete: !todo.is_complete })
-      .eq('id', todo.id)
-
-    if (error) {
-      onError(error.message)
-      return
-    }
-
-    await onRefresh()
+    if (isDemoMode) { onDemoUpdate(todos.map((t) => t.id === todo.id ? { ...t, is_complete: !t.is_complete } : t)); return }
+    try { await api.toggleTodo(todo.id, !todo.is_complete); await onRefresh() } catch (err) { onError((err as Error).message) }
   }
 
   const clearAdhocOnCheck = async (todo: TodoItem) => {
-    const { error } = await supabase.from('todos').delete().eq('id', todo.id)
-    if (error) {
-      onError(error.message)
-      return
-    }
-
-    await onRefresh()
+    if (isDemoMode) { onDemoUpdate(todos.filter((t) => t.id !== todo.id)); return }
+    try { await api.deleteTodo(todo.id); await onRefresh() } catch (err) { onError((err as Error).message) }
   }
 
   const remove = async (id: string) => {
-    const { error } = await supabase.from('todos').delete().eq('id', id)
-    if (error) {
-      onError(error.message)
-      return
-    }
-    await onRefresh()
+    if (isDemoMode) { onDemoUpdate(todos.filter((t) => t.id !== id)); return }
+    try { await api.deleteTodo(id); await onRefresh() } catch (err) { onError((err as Error).message) }
   }
 
   return (
@@ -1376,68 +992,48 @@ function TodoSection({
         <article className="todo-column">
           <div className="todo-column-header">
             <h3>Weekly</h3>
-            <button type="button" onClick={() => openAddModal('weekly')}>
-              Add
-            </button>
+            <div className="row">
+              {weeklyTodos.some((t) => t.is_complete) ? (
+                <button type="button" className="ghost" onClick={resetWeekly}>Untick all</button>
+              ) : null}
+              <button type="button" onClick={() => openAddModal('weekly')}>Add</button>
+            </div>
           </div>
           <ul className="list checklist-list">
             {weeklyTodos.map((todo) => (
               <li key={todo.id} className={todo.is_complete ? 'done' : ''}>
-                <label>
-                  <input type="checkbox" checked={todo.is_complete} onChange={() => toggleWeekly(todo)} />
-                  {todo.title}
-                </label>
-                <button type="button" className="ghost" onClick={() => remove(todo.id)}>
-                  Delete
-                </button>
+                <label><input type="checkbox" checked={todo.is_complete} onChange={() => toggleWeekly(todo)} />{todo.title}</label>
+                <button type="button" className="ghost" onClick={() => remove(todo.id)}>Delete</button>
               </li>
             ))}
             {weeklyTodos.length === 0 ? <li>No weekly tasks yet</li> : null}
           </ul>
         </article>
-
         <article className="todo-column">
           <div className="todo-column-header">
             <h3>Ad-hoc</h3>
-            <button type="button" onClick={() => openAddModal('adhoc')}>
-              Add
-            </button>
+            <button type="button" onClick={() => openAddModal('adhoc')}>Add</button>
           </div>
           <ul className="list checklist-list">
             {adhocTodos.map((todo) => (
               <li key={todo.id}>
-                <label>
-                  <input type="checkbox" checked={false} onChange={() => clearAdhocOnCheck(todo)} />
-                  {todo.title}
-                </label>
-                <button type="button" className="ghost" onClick={() => remove(todo.id)}>
-                  Delete
-                </button>
+                <label><input type="checkbox" checked={false} onChange={() => clearAdhocOnCheck(todo)} />{todo.title}</label>
+                <button type="button" className="ghost" onClick={() => remove(todo.id)}>Delete</button>
               </li>
             ))}
             {adhocTodos.length === 0 ? <li>No ad-hoc tasks right now</li> : null}
           </ul>
         </article>
       </div>
-
       {showAddModal ? (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>Add {targetList === 'weekly' ? 'Weekly' : 'Ad-hoc'} To-Do</h3>
             <form className="stack" onSubmit={addTodo}>
-              <input
-                type="text"
-                autoFocus
-                placeholder="What needs doing?"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                required
-              />
+              <input type="text" autoFocus placeholder="What needs doing?" value={title} onChange={(e) => setTitle(e.target.value)} required />
               <div className="row">
                 <button type="submit">Add</button>
-                <button type="button" className="ghost" onClick={() => setShowAddModal(false)}>
-                  Cancel
-                </button>
+                <button type="button" className="ghost" onClick={() => setShowAddModal(false)}>Cancel</button>
               </div>
             </form>
           </div>
@@ -1453,323 +1049,159 @@ function GroupSection({ members }: { members: Member[] }) {
       <h2>Group</h2>
       <p>You can see your group name and all member emails in this household.</p>
       <ul className="list">
-        {members.map((member) => (
-          <li key={member.id}>
-            <span>{member.member_email}</span>
-          </li>
-        ))}
+        {members.map((m) => <li key={m.id}><span>{m.member_email}</span></li>)}
       </ul>
     </section>
   )
 }
 
 function AdminSuite({
-  households,
-  selectedHouseholdId,
-  selectedMembers,
-  selectedInvites,
-  onSelectHousehold,
-  onRefreshHouseholds,
-  onRefreshSelected,
-  onError,
-  onStatus,
+  households, selectedHouseholdId, selectedMembers, selectedInvites,
+  onSelectHousehold, onRefreshHouseholds, onRefreshSelected, onError, onStatus,
 }: {
-  households: HouseholdSummary[]
-  selectedHouseholdId: string
-  selectedMembers: Member[]
-  selectedInvites: Invite[]
-  onSelectHousehold: (householdId: string) => void
+  households: HouseholdSummary[]; selectedHouseholdId: string
+  selectedMembers: Member[]; selectedInvites: Invite[]
+  onSelectHousehold: (id: string) => void
   onRefreshHouseholds: () => Promise<void>
   onRefreshSelected: () => Promise<void>
-  onError: (value: string) => void
-  onStatus: (value: string) => void
+  onError: (v: string) => void; onStatus: (v: string) => void
 }) {
   const [newHouseholdName, setNewHouseholdName] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
-  const [generatedInviteLink, setGeneratedInviteLink] = useState('')
-  const [generatedInviteToken, setGeneratedInviteToken] = useState('')
+  const [generatedInvite, setGeneratedInvite] = useState<Invite | null>(null)
   const [showHouseholdModal, setShowHouseholdModal] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmName, setDeleteConfirmName] = useState('')
 
   const selectedHousehold = useMemo(
-    () => households.find((household) => household.id === selectedHouseholdId) ?? null,
+    () => households.find((h) => h.id === selectedHouseholdId) ?? null,
     [households, selectedHouseholdId],
   )
 
-  useEffect(() => {
-    setShowDeleteConfirm(false)
-    setDeleteConfirmName('')
-  }, [selectedHouseholdId])
+  useEffect(() => { setShowDeleteConfirm(false); setDeleteConfirmName('') }, [selectedHouseholdId])
 
   const createHousehold = async (event: FormEvent) => {
     event.preventDefault()
-    if (!newHouseholdName.trim()) {
-      return
-    }
-
-    const { error } = await supabase.rpc('create_household_with_admin', {
-      p_household_name: newHouseholdName.trim(),
-    })
-
-    if (error) {
-      onError(error.message)
-      return
-    }
-
-    setNewHouseholdName('')
-    setShowHouseholdModal(false)
-    onStatus('Household created.')
-    await onRefreshHouseholds()
+    if (!newHouseholdName.trim()) return
+    try {
+      await api.createHousehold(newHouseholdName.trim())
+      setNewHouseholdName(''); setShowHouseholdModal(false)
+      onStatus('Household created.'); await onRefreshHouseholds()
+    } catch (err) { onError((err as Error).message) }
   }
 
-  const deleteHousehold = async (householdId: string) => {
-    const { error } = await supabase.from('households').delete().eq('id', householdId)
-    if (error) {
-      onError(error.message)
-      return
-    }
-
-    onStatus('Household deleted.')
-    await onRefreshHouseholds()
-    onSelectHousehold('')
-    setShowDeleteConfirm(false)
-    setDeleteConfirmName('')
+  const deleteHousehold = async (id: string) => {
+    try {
+      await api.deleteHousehold(id)
+      onStatus('Household deleted.'); await onRefreshHouseholds()
+      onSelectHousehold(''); setShowDeleteConfirm(false); setDeleteConfirmName('')
+    } catch (err) { onError((err as Error).message) }
   }
 
   const createInvite = async (event: FormEvent) => {
     event.preventDefault()
-    if (!selectedHouseholdId || !inviteEmail.trim()) {
-      return
-    }
-
-    const { data, error } = await supabase
-      .from('household_invites')
-      .insert({
-        household_id: selectedHouseholdId,
-        email: inviteEmail.trim().toLowerCase(),
-      })
-      .select('invite_token')
-      .single()
-
-    if (error) {
-      onError(error.message)
-      return
-    }
-
-    const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${data.invite_token}`
-    setGeneratedInviteLink(inviteLink)
-    setGeneratedInviteToken(data.invite_token)
-    await onRefreshSelected()
+    if (!selectedHouseholdId || !inviteEmail.trim()) return
+    try {
+      const invite = await api.createInvite(selectedHouseholdId, inviteEmail.trim())
+      setGeneratedInvite(invite); await onRefreshSelected()
+    } catch (err) { onError((err as Error).message) }
   }
 
   const copyInviteLink = async (token: string) => {
     const link = `${window.location.origin}${window.location.pathname}?invite=${token}`
-    try {
-      await navigator.clipboard.writeText(link)
-      onStatus('Invite link copied to clipboard.')
-    } catch {
-      onError('Could not copy to clipboard. Please copy the link manually.')
-    }
+    try { await navigator.clipboard.writeText(link); onStatus('Invite link copied to clipboard.') }
+    catch { onError('Could not copy to clipboard.') }
   }
 
   const cancelInvite = async (id: string) => {
-    const { error } = await supabase.from('household_invites').delete().eq('id', id)
-    if (error) {
-      onError(error.message)
-      return
-    }
-    await onRefreshSelected()
+    try { await api.cancelInvite(id); await onRefreshSelected() } catch (err) { onError((err as Error).message) }
   }
 
   const removeMember = async (id: string) => {
-    const { error } = await supabase.from('household_members').delete().eq('id', id)
-    if (error) {
-      onError(error.message)
-      return
-    }
-    await onRefreshSelected()
+    try { await api.removeMember(id); await onRefreshSelected() } catch (err) { onError((err as Error).message) }
   }
 
   return (
     <section className="card">
       <h2>Admin Suite</h2>
       <p>System admins can create households, invite members, and manage membership.</p>
-
-      <button type="button" onClick={() => setShowHouseholdModal(true)}>
-        Create Household
-      </button>
-
+      <button type="button" onClick={() => setShowHouseholdModal(true)}>Create Household</button>
       <div className="row">
-        <select value={selectedHouseholdId} onChange={(event) => onSelectHousehold(event.target.value)}>
+        <select value={selectedHouseholdId} onChange={(e) => onSelectHousehold(e.target.value)}>
           <option value="">Choose household</option>
-          {households.map((household) => (
-            <option key={household.id} value={household.id}>
-              {household.name}
-            </option>
-          ))}
+          {households.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
         </select>
         {selectedHouseholdId ? (
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => setShowDeleteConfirm((current) => !current)}
-          >
+          <button type="button" className="ghost" onClick={() => setShowDeleteConfirm((v) => !v)}>
             {showDeleteConfirm ? 'Cancel Delete' : 'Delete Household'}
           </button>
         ) : null}
       </div>
-
       {selectedHouseholdId && showDeleteConfirm && selectedHousehold ? (
         <div className="card delete-guard">
-          <p>
-            Type <strong>{selectedHousehold.name}</strong> to confirm deletion.
-          </p>
+          <p>Type <strong>{selectedHousehold.name}</strong> to confirm deletion.</p>
           <div className="row">
-            <input
-              type="text"
-              placeholder="Confirm household name"
-              value={deleteConfirmName}
-              onChange={(event) => setDeleteConfirmName(event.target.value)}
-            />
-            <button
-              type="button"
-              className="danger"
-              disabled={deleteConfirmName.trim() !== selectedHousehold.name}
-              onClick={() => deleteHousehold(selectedHouseholdId)}
-            >
-              Confirm Delete
-            </button>
+            <input type="text" placeholder="Confirm household name" value={deleteConfirmName} onChange={(e) => setDeleteConfirmName(e.target.value)} />
+            <button type="button" className="danger" disabled={deleteConfirmName.trim() !== selectedHousehold.name} onClick={() => deleteHousehold(selectedHouseholdId)}>Confirm Delete</button>
           </div>
         </div>
       ) : null}
-
       {selectedHouseholdId ? (
         <>
-          <button type="button" onClick={() => setShowInviteModal(true)}>
-            Create Invite
-          </button>
-
+          <button type="button" onClick={() => setShowInviteModal(true)}>Create Invite</button>
           <h3>Members</h3>
           <ul className="list">
-            {selectedMembers.map((member) => (
-              <li key={member.id}>
-                <span>{member.member_email}</span>
-                <button type="button" className="ghost" onClick={() => removeMember(member.id)}>
-                  Remove
-                </button>
-              </li>
+            {selectedMembers.map((m) => (
+              <li key={m.id}><span>{m.member_email}</span><button type="button" className="ghost" onClick={() => removeMember(m.id)}>Remove</button></li>
             ))}
           </ul>
-
           <h3>Pending Invites</h3>
           <ul className="list">
-            {selectedInvites.map((invite) => (
-              <li key={invite.id}>
-                <span>
-                  {invite.email}
-                  {invite.expires_at ? `  expires ${dayjs(invite.expires_at).format('YYYY-MM-DD')}` : ''}
-                </span>
-                <button type="button" className="ghost" onClick={() => copyInviteLink(invite.invite_token)}>
-                  Copy URL
-                </button>
-                <button type="button" className="ghost" onClick={() => cancelInvite(invite.id)}>
-                  Cancel
-                </button>
+            {selectedInvites.map((inv) => (
+              <li key={inv.id}>
+                <span>{inv.email}{inv.expires_at ? `  expires ${dayjs(inv.expires_at).format('YYYY-MM-DD')}` : ''}</span>
+                <button type="button" className="ghost" onClick={() => copyInviteLink(inv.invite_token)}>Copy URL</button>
+                <button type="button" className="ghost" onClick={() => cancelInvite(inv.id)}>Cancel</button>
               </li>
             ))}
             {selectedInvites.length === 0 ? <li>No pending invites</li> : null}
           </ul>
         </>
       ) : null}
-
       {showHouseholdModal ? (
         <div className="modal-overlay" onClick={() => setShowHouseholdModal(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>Create Household</h3>
             <form className="stack" onSubmit={createHousehold}>
-              <input
-                type="text"
-                autoFocus
-                placeholder="New household name"
-                value={newHouseholdName}
-                onChange={(event) => setNewHouseholdName(event.target.value)}
-                required
-              />
+              <input type="text" autoFocus placeholder="New household name" value={newHouseholdName} onChange={(e) => setNewHouseholdName(e.target.value)} required />
               <div className="row">
                 <button type="submit">Create</button>
-                <button type="button" className="ghost" onClick={() => setShowHouseholdModal(false)}>
-                  Cancel
-                </button>
+                <button type="button" className="ghost" onClick={() => setShowHouseholdModal(false)}>Cancel</button>
               </div>
             </form>
           </div>
         </div>
       ) : null}
-
       {showInviteModal && selectedHouseholdId ? (
-        <div
-          className="modal-overlay"
-          onClick={() => {
-            setShowInviteModal(false)
-            setGeneratedInviteLink('')
-            setGeneratedInviteToken('')
-            setInviteEmail('')
-          }}
-        >
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => { setShowInviteModal(false); setGeneratedInvite(null); setInviteEmail('') }}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>Create Invite</h3>
-            {generatedInviteLink ? (
+            {generatedInvite ? (
               <div className="stack">
-                <p>Invite created for <strong>{inviteEmail}</strong>. Copy the link below and share it:</p>
-                <input
-                  aria-label="Invite link"
-                  type="text"
-                  readOnly
-                  value={generatedInviteLink}
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                />
+                <p>Invite created for <strong>{inviteEmail}</strong>. Share this link:</p>
+                <input aria-label="Invite link" type="text" readOnly value={`${window.location.origin}${window.location.pathname}?invite=${generatedInvite.invite_token}`} onClick={(e) => (e.target as HTMLInputElement).select()} />
                 <div className="row">
-                  <button type="button" onClick={() => copyInviteLink(generatedInviteToken)}>
-                    Copy Link
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => {
-                      setShowInviteModal(false)
-                      setGeneratedInviteLink('')
-                      setGeneratedInviteToken('')
-                      setInviteEmail('')
-                    }}
-                  >
-                    Done
-                  </button>
+                  <button type="button" onClick={() => copyInviteLink(generatedInvite.invite_token)}>Copy Link</button>
+                  <button type="button" className="ghost" onClick={() => { setShowInviteModal(false); setGeneratedInvite(null); setInviteEmail('') }}>Done</button>
                 </div>
               </div>
             ) : (
               <form className="stack" onSubmit={createInvite}>
-                <input
-                  type="email"
-                  autoFocus
-                  placeholder="Invite email"
-                  value={inviteEmail}
-                  onChange={(event) => setInviteEmail(event.target.value)}
-                  required
-                />
+                <input type="email" autoFocus placeholder="Invite email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
                 <div className="row">
                   <button type="submit">Create Invite</button>
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => {
-                      setShowInviteModal(false)
-                      setInviteEmail('')
-                    }}
-                  >
-                    Cancel
-                  </button>
+                  <button type="button" className="ghost" onClick={() => { setShowInviteModal(false); setInviteEmail('') }}>Cancel</button>
                 </div>
               </form>
             )}
@@ -1781,10 +1213,7 @@ function AdminSuite({
 }
 
 function StatusBar({ status, error }: { status: string; error: string }) {
-  if (!status && !error) {
-    return null
-  }
-
+  if (!status && !error) return null
   return (
     <footer className="statusbar">
       {status ? <p className="status">{status}</p> : null}
