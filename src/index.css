@@ -877,7 +877,12 @@ input[type='checkbox'] {
   }
 
   .tabs button {
-    min-width: 110px;
+    min-width: unset;
+    padding: 0.45rem 0.75rem;
+  }
+
+  .tab-label {
+    display: none;
   }
 
   .meal-form input[list='recipe-suggestions'] {
