@@ -39,7 +39,7 @@ router.post('/', requireAdmin, async (req, res) => {
 
   // Send invite email (non-blocking — don't fail the request if email fails)
   sendInviteEmail(invite.email, invite.invite_token, householdName).catch((err: Error) => {
-    console.error('Failed to send invite email:', err.message)
+    console.error('Failed to send invite email:', err.message, err)
   })
 
   res.status(201).json(invite)

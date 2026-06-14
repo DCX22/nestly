@@ -40,4 +40,20 @@ export async function sendInviteEmail(
   `
 
   await client.sendTransacEmail(email)
+  console.log(`Invite email sent to ${toEmail}`)
+}
+
+export async function sendTestEmail(toEmail: string): Promise<void> {
+  if (!apiKey) throw new Error('BREVO_API_KEY is not set')
+
+  const client = new Brevo.TransactionalEmailsApi()
+  client.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, apiKey)
+
+  const email = new Brevo.SendSmtpEmail()
+  email.sender = { name: fromName, email: fromEmail }
+  email.to = [{ email: toEmail }]
+  email.subject = 'Nestly email test'
+  email.htmlContent = '<p>If you received this, Brevo is configured correctly.</p>'
+
+  await client.sendTransacEmail(email)
 }
