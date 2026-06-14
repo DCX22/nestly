@@ -3,7 +3,7 @@ FROM node:22-alpine AS frontend-builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json ./
 RUN npm install
 
 COPY index.html vite.config.ts tsconfig*.json ./
@@ -18,7 +18,7 @@ FROM node:22-alpine AS production
 WORKDIR /app
 
 # Install production server dependencies (includes tsx)
-COPY server/package.json server/package-lock.json ./
+COPY server/package.json ./
 RUN npm install --omit=dev
 
 # Server source (tsx runs it directly — no compile step needed)
