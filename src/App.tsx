@@ -935,32 +935,30 @@ function MealPlanSection({
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>{editingSlot.mealType.charAt(0).toUpperCase() + editingSlot.mealType.slice(1)} — {dayjs(editingSlot.mealDate).format('ddd D MMM')}</h3>
             <form className="stack" onSubmit={addMeal}>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="Type meal or recipe name…"
-                  value={mealText}
-                  onChange={(e) => setMealText(e.target.value)}
-                  autoComplete="off"
-                  required
-                />
-                {mealText.trim().length > 0 && recipes.filter((r) => r.title.toLowerCase().includes(mealText.toLowerCase().trim())).length > 0 ? (
+              <input
+                type="text"
+                autoFocus
+                placeholder="Type meal or recipe name…"
+                value={mealText}
+                onChange={(e) => setMealText(e.target.value)}
+                autoComplete="off"
+                required
+              />
+              {(() => {
+                const q = mealText.toLowerCase().trim()
+                const suggestions = q.length > 0
+                  ? recipes.filter((r) => r.title.toLowerCase().includes(q) && r.title.toLowerCase() !== q).slice(0, 6)
+                  : []
+                return suggestions.length > 0 ? (
                   <ul className="recipe-suggestions">
-                    {recipes
-                      .filter((r) => r.title.toLowerCase().includes(mealText.toLowerCase().trim()))
-                      .slice(0, 6)
-                      .map((r) => (
-                        <li
-                          key={r.id}
-                          onMouseDown={(e) => { e.preventDefault(); setMealText(r.title) }}
-                        >
-                          {r.title}
-                        </li>
-                      ))}
+                    {suggestions.map((r) => (
+                      <li key={r.id}>
+                        <button type="button" onClick={() => setMealText(r.title)}>{r.title}</button>
+                      </li>
+                    ))}
                   </ul>
-                ) : null}
-              </div>
+                ) : null
+              })()}
               <div className="row">
                 <button type="submit">Add</button>
                 <button type="button" className="ghost" onClick={closeEditor}>Cancel</button>
