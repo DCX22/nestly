@@ -10,7 +10,7 @@ COPY index.html vite.config.ts tsconfig*.json ./
 COPY src ./src
 RUN if [ -d public ]; then cp -r public ./public; fi
 
-RUN ./node_modules/.bin/vite build
+RUN node node_modules/vite/bin/vite.js build
 
 # ── Stage 2: Build server ─────────────────────────────────────────────────────
 FROM node:22-alpine AS server-builder
@@ -23,7 +23,7 @@ RUN npm install
 COPY server/tsconfig.json ./
 COPY server/src ./src
 
-RUN ./node_modules/.bin/tsc
+RUN node node_modules/typescript/bin/tsc
 
 # ── Stage 3: Production image ─────────────────────────────────────────────────
 FROM node:22-alpine AS production
