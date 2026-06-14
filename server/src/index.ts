@@ -5,6 +5,7 @@ import path from 'path'
 import fs from 'fs'
 
 import { sendTestEmail } from './lib/email'
+import { runMigrations } from './lib/migrate'
 import authRoutes from './routes/auth'
 import shoppingRoutes from './routes/shopping'
 import recipesRoutes from './routes/recipes'
@@ -58,6 +59,11 @@ if (isProd) {
   }
 }
 
-app.listen(PORT, () => {
-  console.log(`Nestly API listening on http://localhost:${PORT}`)
-})
+runMigrations()
+  .then(() => app.listen(PORT, () => {
+    console.log(`Nestly API listening on http://localhost:${PORT}`)
+  }))
+  .catch((err) => {
+    console.error('Migration failed, server not started:', err)
+    process.exit(1)
+  })
