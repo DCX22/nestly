@@ -876,9 +876,19 @@ input[type='checkbox'] {
     width: 100%;
   }
 
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: unset;
+    gap: 0.25rem;
+  }
+
   .tabs button {
-    min-width: unset;
-    padding: 0.45rem 0.75rem;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.5rem 0;
+    font-size: 1.2rem;
+    justify-content: center;
+    text-align: center;
   }
 
   .tab-label {
