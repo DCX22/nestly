@@ -37,7 +37,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
 // Serve built frontend in production
 if (isProd) {
-  const distPath = path.resolve(__dirname, '../public')
+  const distPath = path.resolve(process.cwd(), 'public')
   if (fs.existsSync(distPath)) {
     app.use(express.static(distPath))
     app.get('*', (_req, res) => {

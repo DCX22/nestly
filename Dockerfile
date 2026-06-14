@@ -8,7 +8,7 @@ RUN npm install --include=dev
 
 COPY index.html vite.config.ts tsconfig*.json ./
 COPY src ./src
-RUN if [ -d public ]; then cp -r public ./public; fi
+COPY public ./public
 
 RUN node node_modules/vite/bin/vite.js build
 
