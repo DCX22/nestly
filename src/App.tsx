@@ -1212,7 +1212,7 @@ function AdminSuite({
             <h3>Create Invite</h3>
             {generatedInvite ? (
               <div className="stack">
-                <p>Invite created for <strong>{inviteEmail}</strong>. Share this link:</p>
+                <p>✓ An invite email has been sent to <strong>{inviteEmail}</strong>. You can also share the link below directly:</p>
                 <input aria-label="Invite link" type="text" readOnly value={`${window.location.origin}${window.location.pathname}?invite=${generatedInvite.invite_token}`} onClick={(e) => (e.target as HTMLInputElement).select()} />
                 <div className="row">
                   <button type="button" onClick={() => copyInviteLink(generatedInvite.invite_token)}>Copy Link</button>
