@@ -21,7 +21,7 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
-/* Light theme kept minimal — dark is the primary experience */
+/* ── Light mode ──────────────────────────────── */
 :root[data-theme='light'] {
   --bg: #f4f4f8;
   --surface: #ffffff;
@@ -41,6 +41,160 @@
   --warning-dim: rgba(220, 38, 38, 0.1);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* ── Colour themes (dark base) ───────────────── */
+
+/* Ocean — blue/teal */
+:root[data-colour='ocean'] {
+  --brand: #0ea5e9;
+  --brand-hover: #0284c7;
+  --brand-dim: rgba(14, 165, 233, 0.15);
+  --brand-dim-hover: rgba(14, 165, 233, 0.25);
+  --surface: #0d1f2d;
+  --surface-raised: #132636;
+  --bg: #08131b;
+  --border: #1e3448;
+  --border-subtle: #152a3a;
+}
+
+/* Forest — green */
+:root[data-colour='forest'] {
+  --brand: #22c55e;
+  --brand-hover: #16a34a;
+  --brand-dim: rgba(34, 197, 94, 0.15);
+  --brand-dim-hover: rgba(34, 197, 94, 0.25);
+  --surface: #0d1f14;
+  --surface-raised: #12281a;
+  --bg: #08130d;
+  --border: #1e3d27;
+  --border-subtle: #152e1c;
+}
+
+/* Sunset — orange/amber */
+:root[data-colour='sunset'] {
+  --brand: #f97316;
+  --brand-hover: #ea6c0a;
+  --brand-dim: rgba(249, 115, 22, 0.15);
+  --brand-dim-hover: rgba(249, 115, 22, 0.25);
+  --surface: #1f1508;
+  --surface-raised: #281c0c;
+  --bg: #130d04;
+  --border: #3d2810;
+  --border-subtle: #2e1e09;
+}
+
+/* Rose — pink */
+:root[data-colour='rose'] {
+  --brand: #f43f5e;
+  --brand-hover: #e11d48;
+  --brand-dim: rgba(244, 63, 94, 0.15);
+  --brand-dim-hover: rgba(244, 63, 94, 0.25);
+  --surface: #1f0d12;
+  --surface-raised: #271118;
+  --bg: #12070b;
+  --border: #3d1520;
+  --border-subtle: #2e0f18;
+}
+
+/* Slate — cool grey */
+:root[data-colour='slate'] {
+  --brand: #94a3b8;
+  --brand-hover: #7e92a8;
+  --brand-dim: rgba(148, 163, 184, 0.15);
+  --brand-dim-hover: rgba(148, 163, 184, 0.25);
+  --surface: #161b22;
+  --surface-raised: #1c2330;
+  --bg: #0d1117;
+  --border: #30363d;
+  --border-subtle: #21262d;
+}
+
+/* Candy — vibrant pink/purple */
+:root[data-colour='candy'] {
+  --brand: #e879f9;
+  --brand-hover: #d946ef;
+  --brand-dim: rgba(232, 121, 249, 0.15);
+  --brand-dim-hover: rgba(232, 121, 249, 0.25);
+  --surface: #1a0d1f;
+  --surface-raised: #221228;
+  --bg: #10071a;
+  --border: #3a1a45;
+  --border-subtle: #2a1133;
+}
+
+/* ── Colour themes (light mode overrides) ────── */
+
+:root[data-theme='light'][data-colour='ocean'] {
+  --brand: #0284c7;
+  --brand-hover: #0369a1;
+  --brand-dim: rgba(2, 132, 199, 0.1);
+  --brand-dim-hover: rgba(2, 132, 199, 0.18);
+  --surface: #ffffff;
+  --surface-raised: #f0f9ff;
+  --bg: #e0f2fe;
+  --border: #bae6fd;
+  --border-subtle: #e0f2fe;
+}
+
+:root[data-theme='light'][data-colour='forest'] {
+  --brand: #16a34a;
+  --brand-hover: #15803d;
+  --brand-dim: rgba(22, 163, 74, 0.1);
+  --brand-dim-hover: rgba(22, 163, 74, 0.18);
+  --surface: #ffffff;
+  --surface-raised: #f0fdf4;
+  --bg: #dcfce7;
+  --border: #bbf7d0;
+  --border-subtle: #dcfce7;
+}
+
+:root[data-theme='light'][data-colour='sunset'] {
+  --brand: #ea580c;
+  --brand-hover: #c2410c;
+  --brand-dim: rgba(234, 88, 12, 0.1);
+  --brand-dim-hover: rgba(234, 88, 12, 0.18);
+  --surface: #ffffff;
+  --surface-raised: #fff7ed;
+  --bg: #ffedd5;
+  --border: #fed7aa;
+  --border-subtle: #ffedd5;
+}
+
+:root[data-theme='light'][data-colour='rose'] {
+  --brand: #e11d48;
+  --brand-hover: #be123c;
+  --brand-dim: rgba(225, 29, 72, 0.1);
+  --brand-dim-hover: rgba(225, 29, 72, 0.18);
+  --surface: #ffffff;
+  --surface-raised: #fff1f2;
+  --bg: #ffe4e6;
+  --border: #fecdd3;
+  --border-subtle: #ffe4e6;
+}
+
+:root[data-theme='light'][data-colour='slate'] {
+  --brand: #475569;
+  --brand-hover: #334155;
+  --brand-dim: rgba(71, 85, 105, 0.1);
+  --brand-dim-hover: rgba(71, 85, 105, 0.18);
+  --surface: #ffffff;
+  --surface-raised: #f8fafc;
+  --bg: #f1f5f9;
+  --border: #cbd5e1;
+  --border-subtle: #e2e8f0;
+}
+
+:root[data-theme='light'][data-colour='candy'] {
+  --brand: #d946ef;
+  --brand-hover: #c026d3;
+  --brand-dim: rgba(217, 70, 239, 0.1);
+  --brand-dim-hover: rgba(217, 70, 239, 0.18);
+  --surface: #ffffff;
+  --surface-raised: #fdf4ff;
+  --bg: #fae8ff;
+  --border: #f5d0fe;
+  --border-subtle: #fae8ff;
 }
 
 * {

@@ -18,6 +18,7 @@ const mealTypes = ['breakfast', 'lunch', 'dinner'] as const
 
 type Tab = 'shopping' | 'recipes' | 'meal-plan' | 'todos' | 'group' | 'admin-suite'
 type ThemeMode = 'system' | 'light' | 'dark'
+type ColourTheme = 'default' | 'ocean' | 'forest' | 'sunset' | 'rose' | 'slate' | 'candy'
 
 const DEMO_HOUSEHOLD_ID = 'demo-household'
 
@@ -125,6 +126,11 @@ function App() {
     if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
     return 'system'
   })
+  const [colourTheme, setColourTheme] = useState<ColourTheme>(() => {
+    const stored = window.localStorage.getItem('colour-theme')
+    if (stored === 'ocean' || stored === 'forest' || stored === 'sunset' || stored === 'rose' || stored === 'slate' || stored === 'candy') return stored
+    return 'default'
+  })
 
   const activeMembership = useMemo(
     () => memberships.find((m) => m.household_id === activeHouseholdId) ?? null,
@@ -226,6 +232,15 @@ function App() {
     window.localStorage.setItem('theme-mode', themeMode)
     return () => media.removeEventListener('change', onSystemChange)
   }, [themeMode])
+
+  useEffect(() => {
+    if (colourTheme === 'default') {
+      document.documentElement.removeAttribute('data-colour')
+    } else {
+      document.documentElement.setAttribute('data-colour', colourTheme)
+    }
+    window.localStorage.setItem('colour-theme', colourTheme)
+  }, [colourTheme])
 
   async function loadMemberships() {
     try {
@@ -357,6 +372,15 @@ function App() {
             </select>
           ) : null}
 
+          <select value={colourTheme} onChange={(e) => setColourTheme(e.target.value as ColourTheme)} aria-label="Colour theme">
+            <option value="default">🟣 Default</option>
+            <option value="ocean">🔵 Ocean</option>
+            <option value="forest">🟢 Forest</option>
+            <option value="sunset">🟠 Sunset</option>
+            <option value="rose">🌸 Rose</option>
+            <option value="slate">⬜ Slate</option>
+            <option value="candy">💜 Candy</option>
+          </select>
           <select value={themeMode} onChange={(e) => setThemeMode(e.target.value as ThemeMode)} aria-label="Theme mode">
             <option value="system">System</option>
             <option value="light">Light</option>
