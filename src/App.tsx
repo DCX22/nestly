@@ -408,7 +408,6 @@ function App() {
         ) : null}
       </nav>
 
-      {loadingData && hasMembership ? <p>Refreshing household data...</p> : null}
 
       {activeTab === 'shopping' && hasMembership ? (
         <ShoppingSection
