@@ -1,121 +1,126 @@
-# NineWest Household Hub
+# Nestly
 
-Invite-only household organizer built with React + Vite and Supabase.
+Invite-only household organiser built with React + Vite and an Express + Postgres backend.
 
-## What it includes
+## Features
 
-- Shopping list
-- Recipes
-- Meal plan (breakfast/lunch/dinner)
-- Daily/weekly/one-off todos
-- Household access management (members + invites)
+- Shopping list with quantities and clear-completed
+- Recipe library with ingredients, method, and serving scaler
+- Meal plan (breakfast / lunch / dinner, weekly view)
+- Weekly and ad-hoc to-dos with optional member assignment
+- Household management — members and invite-by-email
+- Colour themes (ocean, forest, sunset, rose, slate, candy) + light/dark mode
+- Transactional invite emails via Brevo SMTP
+- Docker-based deployment via Coolify
 
-## Tech choices
+## Tech stack
 
-- Frontend: React + TypeScript + Vite
-- Backend: Supabase (Auth + Postgres + RLS)
-- Hosting: GitHub Pages
+| Layer | Choice |
+|---|---|
+| Frontend | React 19 + TypeScript + Vite |
+| Backend | Express + pg (node-postgres) + JWT |
+| Database | PostgreSQL |
+| Email | Brevo (SMTP) via nodemailer |
+| Deployment | Docker + Coolify |
 
-## Local setup
+## Local development
 
-1. Install dependencies:
+### Prerequisites
+
+- Node 22+
+- PostgreSQL running locally (or a connection string to a remote instance)
+
+### Frontend
 
 ```bash
 npm install
-```
-
-2. Copy `.env.example` to `.env` and fill values:
-
-```env
-VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
-```
-
-3. Run development server:
-
-```bash
 npm run dev
 ```
 
-4. Build for production:
+### Backend
 
 ```bash
-npm run build
+cd server
+npm install
+cp .env.example .env   # fill in values
+npm run dev
 ```
 
-## Supabase setup
+The frontend dev server proxies `/api` requests to `http://localhost:3002`.
 
-Run migration file:
+### Environment variables (server/.env)
 
-- `supabase/migrations/20260308_init_household_schema.sql`
-- `supabase/migrations/20260308_fix_rls_recursion.sql`
-- `supabase/migrations/20260308_system_admin_model.sql`
-- `supabase/migrations/20260308_recipe_fields.sql`
+```env
+DATABASE_URL=postgres://postgres:password@localhost:5432/nestly
+JWT_SECRET=change-me-to-a-long-random-string
+PORT=3002
 
-You can run it either with Supabase CLI (`supabase db push`) or paste into SQL Editor.
+# Brevo email (optional — invite link still shown in UI without it)
+BREVO_SMTP_HOST=smtp-relay.brevo.com
+BREVO_SMTP_PORT=587
+BREVO_SMTP_USER=your-brevo-smtp-user
+BREVO_SMTP_PASS=your-brevo-smtp-password
+BREVO_FROM_EMAIL=noreply@yourdomain.com
+BREVO_FROM_NAME=Nestly
+APP_URL=https://your-nestly-domain.com
+```
 
-### Important auth settings
+## Database setup
 
-- Enable Email/Password sign-in.
-- For the smoothest invite flow in this build, disable email confirmation requirement for new users.
-- If you keep email confirmation on, invited users must confirm email first, then sign in and accept invite.
+Run the schema once against your Postgres instance:
 
-### Set your first system admin
+```bash
+psql -U postgres -d nestly -f server/src/schema.sql
+```
 
-After running migrations, promote your own account to system admin:
+Schema migrations (e.g. new columns) run automatically on server startup — no manual steps needed after the initial schema.
+
+### Create your first admin account
+
+After the schema is applied, insert a user and promote them to admin:
 
 ```sql
-update public.user_roles
-set system_role = 'admin'
-where user_id = (
-	select id from auth.users where email = 'YOUR_EMAIL@EXAMPLE.COM'
+INSERT INTO users (email, password_hash)
+VALUES ('you@example.com', crypt('yourpassword', gen_salt('bf', 12)));
+
+INSERT INTO user_roles (user_id, system_role)
+VALUES (
+  (SELECT id FROM users WHERE email = 'you@example.com'),
+  'admin'
 );
 ```
 
-You can later demote/promote users by updating `public.user_roles.system_role`.
+## Invite flow
 
-## Invite-only flow
+1. Admin signs in and creates a household.
+2. Admin creates an invite for an email address — an invite email is sent automatically.
+3. The invited user opens the link (`?invite=<token>`), sets a password, and joins.
+4. All data access is protected by membership checks on the server.
 
-1. Admin creates a household.
-2. Admin creates an invite for an email address.
-3. App generates an invite link (copied to clipboard), format: `?invite=<token>`.
-4. Invited user opens link, sets password, and joins household.
-5. Access to data is protected by RLS membership checks.
+## Docker / Coolify deployment
 
-## GitHub Pages deployment
+The `Dockerfile` builds in two stages:
 
-Workflow is included at `.github/workflows/deploy-pages.yml`.
+1. **frontend-builder** — runs `vite build`, outputs to `/app/dist`
+2. **production** — installs server dependencies, copies built frontend, starts Express with `tsx`
 
-### Required repository secrets
+The Express server serves the built frontend as static files in production and handles all `/api` routes.
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+### Required environment variables in Coolify
 
-If you store secrets under the `github-pages` Environment instead of repository-wide secrets, this workflow supports that as well.
+Set all variables from the `server/.env` section above, plus:
 
-### Required repo settings
+```env
+NODE_ENV=production
+PORT=3002
+```
 
-1. In GitHub repo: `Settings` -> `Pages`.
-2. Set Source to `GitHub Actions`.
-3. Push to `main` branch.
+### Test email delivery
 
-The app is configured with Vite `base` for repository Pages path (`/NineWestPages/`) when running in GitHub Actions.
+After deployment, test Brevo is configured correctly:
 
-### Troubleshooting: Missing Supabase environment variables at runtime
-
-If the site loads with:
-
-`Missing Supabase environment variables. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.`
-
-then the build ran without those secrets. Verify:
-
-1. `Settings` -> `Secrets and variables` -> `Actions` has both secrets, or `Settings` -> `Environments` -> `github-pages` has both.
-2. Secret names match exactly:
-	- `VITE_SUPABASE_URL`
-	- `VITE_SUPABASE_ANON_KEY`
-3. Re-run the latest `Deploy to GitHub Pages` workflow after saving secrets.
-
-## Notes
-
-- This project is frontend-only and calls Supabase directly.
-- No custom Node backend is required for the current scope.
+```sh
+wget -qO- --post-data='{"to":"you@example.com"}' \
+  --header='Content-Type: application/json' \
+  http://localhost:3002/api/test-email
+```
