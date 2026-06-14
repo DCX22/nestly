@@ -390,17 +390,17 @@ function App() {
       <nav className="tabs">
         {hasMembership ? (
           <>
-            <button className={activeTab === 'shopping' ? 'active' : ''} type="button" onClick={() => setActiveTab('shopping')}>Shopping</button>
-            <button className={activeTab === 'recipes' ? 'active' : ''} type="button" onClick={() => setActiveTab('recipes')}>Recipes</button>
-            <button className={activeTab === 'meal-plan' ? 'active' : ''} type="button" onClick={() => setActiveTab('meal-plan')}>Meal Plan</button>
-            <button className={activeTab === 'todos' ? 'active' : ''} type="button" onClick={() => setActiveTab('todos')}>To-Do's</button>
-            <button className={activeTab === 'group' ? 'active' : ''} type="button" onClick={() => setActiveTab('group')}>Group</button>
+            <button className={activeTab === 'shopping' ? 'active' : ''} type="button" onClick={() => setActiveTab('shopping')}>🛒 Shopping</button>
+            <button className={activeTab === 'recipes' ? 'active' : ''} type="button" onClick={() => setActiveTab('recipes')}>📖 Recipes</button>
+            <button className={activeTab === 'meal-plan' ? 'active' : ''} type="button" onClick={() => setActiveTab('meal-plan')}>🍽️ Meal Plan</button>
+            <button className={activeTab === 'todos' ? 'active' : ''} type="button" onClick={() => setActiveTab('todos')}>✅ To-Do's</button>
+            <button className={activeTab === 'group' ? 'active' : ''} type="button" onClick={() => setActiveTab('group')}>👥 Group</button>
           </>
         ) : null}
         {isSystemAdmin ? (
-          <button className={activeTab === 'admin-suite' ? 'active' : ''} type="button" onClick={() => setActiveTab('admin-suite')}>Admin Suite</button>
+          <button className={activeTab === 'admin-suite' ? 'active' : ''} type="button" onClick={() => setActiveTab('admin-suite')}>🛠️ Admin Suite</button>
         ) : null}
-        <button className={activeTab === 'settings' ? 'active' : ''} type="button" onClick={() => setActiveTab('settings')}>Settings</button>
+        <button className={activeTab === 'settings' ? 'active' : ''} type="button" onClick={() => setActiveTab('settings')}>⚙️ Settings</button>
       </nav>
 
 
