@@ -447,6 +447,7 @@ function App() {
         <TodoSection
           householdId={activeHouseholdId}
           todos={todos}
+          members={members}
           isDemoMode={isDemoMode}
           onDemoUpdate={setTodos}
           onRefresh={() => loadHouseholdData(activeHouseholdId)}
@@ -929,24 +930,26 @@ function MealPlanSection({
 }
 
 function TodoSection({
-  householdId, todos, isDemoMode, onDemoUpdate, onRefresh, onError,
+  householdId, todos, members, isDemoMode, onDemoUpdate, onRefresh, onError,
 }: {
-  householdId: string; todos: TodoItem[]; isDemoMode: boolean
+  householdId: string; todos: TodoItem[]; members: Member[]; isDemoMode: boolean
   onDemoUpdate: (todos: TodoItem[]) => void
   onRefresh: () => Promise<void>; onError: (v: string) => void
 }) {
   const [showAddModal, setShowAddModal] = useState(false)
-  const [targetList, setTargetList] = useState<'weekly' | 'adhoc'>('adhoc')
+  const [targetList, setTargetList] = useState<'weekly' | 'adhoc' | 'chore'>('adhoc')
   const [title, setTitle] = useState('')
+  const [assignedTo, setAssignedTo] = useState<string>('')
 
   const weeklyTodos = todos.filter((t) => t.recurrence === 'weekly')
-  const adhocTodos = todos.filter((t) => t.recurrence !== 'weekly')
+  const adhocTodos = todos.filter((t) => t.recurrence === 'none')
+  const chores = todos.filter((t) => t.recurrence === 'chore')
 
   useEffect(() => {
     if (isDemoMode) return
     const maybeResetWeekly = async () => {
       const isSunday = dayjs().day() === 0
-      const hasCompleted = weeklyTodos.some((t) => t.is_complete)
+      const hasCompleted = [...weeklyTodos, ...chores].some((t) => t.is_complete)
       const weekKey = dayjs().startOf('week').format('YYYY-MM-DD')
       const resetKey = `weekly-reset:${householdId}`
       if (!isSunday || !hasCompleted || localStorage.getItem(resetKey) === weekKey) return
@@ -957,36 +960,54 @@ function TodoSection({
       } catch (err) { onError((err as Error).message) }
     }
     void maybeResetWeekly()
-  }, [householdId, weeklyTodos, onRefresh, onError, isDemoMode])
+  }, [householdId, weeklyTodos, chores, onRefresh, onError, isDemoMode])
 
-  const openAddModal = (list: 'weekly' | 'adhoc') => { setTargetList(list); setTitle(''); setShowAddModal(true) }
+  const openAddModal = (list: 'weekly' | 'adhoc' | 'chore') => {
+    setTargetList(list); setTitle(''); setAssignedTo(members[0]?.user_id ?? ''); setShowAddModal(true)
+  }
 
   const addTodo = async (event: FormEvent) => {
     event.preventDefault()
     const trimmed = title.trim()
     if (!trimmed) return
-    const recurrence = targetList === 'weekly' ? 'weekly' : 'none'
+    const recurrence = targetList === 'weekly' ? 'weekly' : targetList === 'chore' ? 'chore' : 'none'
+    const assigned = targetList === 'chore' ? (assignedTo || null) : null
     if (isDemoMode) {
-      onDemoUpdate([...todos, { id: crypto.randomUUID(), household_id: householdId, title: trimmed, notes: null, due_date: null, recurrence, is_complete: false, created_at: '' }])
+      onDemoUpdate([...todos, { id: crypto.randomUUID(), household_id: householdId, title: trimmed, notes: null, due_date: null, recurrence, is_complete: false, assigned_to: assigned, assigned_email: members.find(m => m.user_id === assigned)?.member_email ?? null, created_at: '' }])
       setTitle(''); setShowAddModal(false); return
     }
     try {
-      await api.addTodo({ householdId, title: trimmed, recurrence })
+      await api.addTodo({ householdId, title: trimmed, recurrence, assigned_to: assigned })
       setTitle(''); setShowAddModal(false); await onRefresh()
     } catch (err) { onError((err as Error).message) }
+  }
+
+  const reassign = async (todo: TodoItem, userId: string | null) => {
+    if (isDemoMode) {
+      const m = members.find(m => m.user_id === userId)
+      onDemoUpdate(todos.map((t) => t.id === todo.id ? { ...t, assigned_to: userId, assigned_email: m?.member_email ?? null } : t))
+      return
+    }
+    try { await api.assignTodo(todo.id, userId); await onRefresh() } catch (err) { onError((err as Error).message) }
   }
 
   const resetWeekly = async () => {
     const toReset = weeklyTodos.filter((t) => t.is_complete)
     if (toReset.length === 0) return
     if (isDemoMode) { onDemoUpdate(todos.map((t) => t.recurrence === 'weekly' ? { ...t, is_complete: false } : t)); return }
-    try {
-      await Promise.all(toReset.map((t) => api.toggleTodo(t.id, false)))
-      await onRefresh()
-    } catch (err) { onError((err as Error).message) }
+    try { await Promise.all(toReset.map((t) => api.toggleTodo(t.id, false))); await onRefresh() }
+    catch (err) { onError((err as Error).message) }
   }
 
-  const toggleWeekly = async (todo: TodoItem) => {
+  const resetChores = async () => {
+    const toReset = chores.filter((t) => t.is_complete)
+    if (toReset.length === 0) return
+    if (isDemoMode) { onDemoUpdate(todos.map((t) => t.recurrence === 'chore' ? { ...t, is_complete: false } : t)); return }
+    try { await Promise.all(toReset.map((t) => api.toggleTodo(t.id, false))); await onRefresh() }
+    catch (err) { onError((err as Error).message) }
+  }
+
+  const toggle = async (todo: TodoItem) => {
     if (isDemoMode) { onDemoUpdate(todos.map((t) => t.id === todo.id ? { ...t, is_complete: !t.is_complete } : t)); return }
     try { await api.toggleTodo(todo.id, !todo.is_complete); await onRefresh() } catch (err) { onError((err as Error).message) }
   }
@@ -1000,6 +1021,8 @@ function TodoSection({
     if (isDemoMode) { onDemoUpdate(todos.filter((t) => t.id !== id)); return }
     try { await api.deleteTodo(id); await onRefresh() } catch (err) { onError((err as Error).message) }
   }
+
+  const initials = (email: string) => email.slice(0, 2).toUpperCase()
 
   return (
     <section className="card">
@@ -1018,7 +1041,7 @@ function TodoSection({
           <ul className="list checklist-list">
             {weeklyTodos.map((todo) => (
               <li key={todo.id} className={todo.is_complete ? 'done' : ''}>
-                <label><input type="checkbox" checked={todo.is_complete} onChange={() => toggleWeekly(todo)} />{todo.title}</label>
+                <label><input type="checkbox" checked={todo.is_complete} onChange={() => toggle(todo)} />{todo.title}</label>
                 <button type="button" className="ghost" onClick={() => remove(todo.id)}>Delete</button>
               </li>
             ))}
@@ -1040,13 +1063,57 @@ function TodoSection({
             {adhocTodos.length === 0 ? <li>No ad-hoc tasks right now</li> : null}
           </ul>
         </article>
+        <article className="todo-column">
+          <div className="todo-column-header">
+            <h3>Chores</h3>
+            <div className="row">
+              {chores.some((t) => t.is_complete) ? (
+                <button type="button" className="ghost" onClick={resetChores}>Untick all</button>
+              ) : null}
+              <button type="button" onClick={() => openAddModal('chore')}>Add</button>
+            </div>
+          </div>
+          <ul className="list checklist-list">
+            {chores.map((chore) => (
+              <li key={chore.id} className={chore.is_complete ? 'done' : ''} style={{ flexWrap: 'wrap', gap: '6px' }}>
+                <label style={{ flex: 1 }}><input type="checkbox" checked={chore.is_complete} onChange={() => toggle(chore)} />{chore.title}</label>
+                <select
+                  value={chore.assigned_to ?? ''}
+                  onChange={(e) => reassign(chore, e.target.value || null)}
+                  style={{ fontSize: '0.75rem', padding: '2px 4px', maxWidth: '120px' }}
+                  aria-label="Assigned to"
+                >
+                  <option value="">Unassigned</option>
+                  {members.map((m) => (
+                    <option key={m.user_id} value={m.user_id}>{m.member_email.split('@')[0]}</option>
+                  ))}
+                </select>
+                {chore.assigned_email ? (
+                  <span title={chore.assigned_email} style={{ fontSize: '0.7rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '999px', padding: '1px 7px', color: 'var(--ink-muted)' }}>
+                    {initials(chore.assigned_email)}
+                  </span>
+                ) : null}
+                <button type="button" className="ghost" onClick={() => remove(chore.id)}>Delete</button>
+              </li>
+            ))}
+            {chores.length === 0 ? <li>No chores yet</li> : null}
+          </ul>
+        </article>
       </div>
       {showAddModal ? (
         <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3>Add {targetList === 'weekly' ? 'Weekly' : 'Ad-hoc'} To-Do</h3>
+            <h3>Add {targetList === 'weekly' ? 'Weekly' : targetList === 'chore' ? 'Chore' : 'Ad-hoc'} To-Do</h3>
             <form className="stack" onSubmit={addTodo}>
               <input type="text" autoFocus placeholder="What needs doing?" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              {targetList === 'chore' ? (
+                <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} aria-label="Assign to member">
+                  <option value="">Unassigned</option>
+                  {members.map((m) => (
+                    <option key={m.user_id} value={m.user_id}>{m.member_email}</option>
+                  ))}
+                </select>
+              ) : null}
               <div className="row">
                 <button type="submit">Add</button>
                 <button type="button" className="ghost" onClick={() => setShowAddModal(false)}>Cancel</button>

@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS todos (
   due_date     DATE,
   recurrence   TEXT NOT NULL DEFAULT 'none',
   is_complete  BOOLEAN NOT NULL DEFAULT FALSE,
+  assigned_to  UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

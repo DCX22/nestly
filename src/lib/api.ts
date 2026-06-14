@@ -166,9 +166,13 @@ export async function getTodos(householdId: string): Promise<TodoItem[]> {
 
 export async function addTodo(data: {
   householdId: string; title: string; recurrence: string
-  notes?: string | null; due_date?: string | null
+  notes?: string | null; due_date?: string | null; assigned_to?: string | null
 }): Promise<TodoItem> {
   return request<TodoItem>('POST', '/todos', data)
+}
+
+export async function assignTodo(id: string, assigned_to: string | null): Promise<TodoItem> {
+  return request<TodoItem>('PATCH', `/todos/${id}/assign`, { assigned_to })
 }
 
 export async function toggleTodo(id: string, is_complete: boolean): Promise<TodoItem> {

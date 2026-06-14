@@ -39,6 +39,8 @@ export interface TodoItem {
   due_date: string | null
   recurrence: string
   is_complete: boolean
+  assigned_to: string | null
+  assigned_email: string | null
   created_at: string
 }
 
