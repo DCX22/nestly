@@ -933,10 +933,34 @@ function MealPlanSection({
       {editingSlot ? (
         <div className="modal-overlay" onClick={closeEditor}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <h3>Edit {editingSlot.mealType} {dayjs(editingSlot.mealDate).format('D MMM')}</h3>
+            <h3>{editingSlot.mealType.charAt(0).toUpperCase() + editingSlot.mealType.slice(1)} — {dayjs(editingSlot.mealDate).format('ddd D MMM')}</h3>
             <form className="stack" onSubmit={addMeal}>
-              <input type="text" list="recipe-suggestions" autoFocus placeholder="Type meal or recipe" value={mealText} onChange={(e) => setMealText(e.target.value)} required />
-              <datalist id="recipe-suggestions">{recipes.map((r) => <option key={r.id} value={r.title} />)}</datalist>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Type meal or recipe name…"
+                  value={mealText}
+                  onChange={(e) => setMealText(e.target.value)}
+                  autoComplete="off"
+                  required
+                />
+                {mealText.trim().length > 0 && recipes.filter((r) => r.title.toLowerCase().includes(mealText.toLowerCase().trim())).length > 0 ? (
+                  <ul className="recipe-suggestions">
+                    {recipes
+                      .filter((r) => r.title.toLowerCase().includes(mealText.toLowerCase().trim()))
+                      .slice(0, 6)
+                      .map((r) => (
+                        <li
+                          key={r.id}
+                          onMouseDown={(e) => { e.preventDefault(); setMealText(r.title) }}
+                        >
+                          {r.title}
+                        </li>
+                      ))}
+                  </ul>
+                ) : null}
+              </div>
               <div className="row">
                 <button type="submit">Add</button>
                 <button type="button" className="ghost" onClick={closeEditor}>Cancel</button>
