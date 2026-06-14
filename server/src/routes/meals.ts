@@ -20,7 +20,8 @@ router.get('/', async (req, res) => {
       res.status(403).json({ message: 'Access denied' }); return
     }
     const { rows } = await pool.query(
-      `SELECT *, to_char(meal_date, 'YYYY-MM-DD') AS meal_date
+      `SELECT id, household_id, to_char(meal_date, 'YYYY-MM-DD') AS meal_date,
+              meal_type, recipe_id, recipe_title, created_at
        FROM meal_plan_entries WHERE household_id = $1 ORDER BY meal_date ASC`,
       [householdId],
     )
