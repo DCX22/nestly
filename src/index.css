@@ -591,6 +591,47 @@ input[type='checkbox'] {
   background: var(--surface-raised);
 }
 
+/* ── Settings ────────────────────────────────── */
+
+.settings-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.25rem 0;
+  max-width: 480px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-row label {
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.settings-row select,
+.settings-row button {
+  width: auto;
+}
+
+.settings-value {
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+/* ── Meal plan ───────────────────────────────── */
+
 .meal-slot-title {
   margin: 0 0 0.2rem;
   font-size: 0.78rem;

@@ -16,7 +16,7 @@ import type {
 
 const mealTypes = ['breakfast', 'lunch', 'dinner'] as const
 
-type Tab = 'shopping' | 'recipes' | 'meal-plan' | 'todos' | 'group' | 'admin-suite'
+type Tab = 'shopping' | 'recipes' | 'meal-plan' | 'todos' | 'group' | 'admin-suite' | 'settings'
 type ThemeMode = 'system' | 'light' | 'dark'
 type ColourTheme = 'default' | 'ocean' | 'forest' | 'sunset' | 'rose' | 'slate' | 'candy'
 
@@ -363,11 +363,23 @@ function App() {
   if (!hasMembership && !isSystemAdmin) {
     return (
       <div className="shell">
-        <header className="hero">
-          <h1>Nestly</h1>
-          <p>Signed in as <strong>{userEmail}</strong>. You do not have household access yet.</p>
-          <button className="ghost" type="button" onClick={signOut}>Sign out</button>
-        </header>
+        <nav className="tabs">
+          <button className="active" type="button">Settings</button>
+        </nav>
+        <section className="section">
+          <h2>Settings</h2>
+          <div className="settings-card">
+            <div className="settings-row">
+              <label>Account</label>
+              <span className="settings-value">{userEmail}</span>
+            </div>
+            <p style={{ color: 'var(--ink-muted)', fontSize: '0.9rem', margin: '0.5rem 0 0' }}>You do not have household access yet. Contact an admin to be invited.</p>
+            <div className="settings-row" style={{ marginTop: '1rem' }}>
+              <label>Session</label>
+              <button className="ghost" type="button" onClick={signOut}>Sign out</button>
+            </div>
+          </div>
+        </section>
         <StatusBar error={error} status={status} />
       </div>
     )
@@ -375,44 +387,6 @@ function App() {
 
   return (
     <div className="shell">
-      <header className="hero">
-        <div>
-          <h1>{getHouseholdName(activeMembership) ?? 'Household'}</h1>
-          <p>{isDemoMode ? 'Demo mode — changes are not saved' : `Signed in as ${userEmail}`}</p>
-        </div>
-
-        <div className="row">
-          {hasMembership ? (
-            <select value={activeHouseholdId} onChange={(e) => setActiveHouseholdId(e.target.value)}>
-              {memberships.map((m) => (
-                <option key={m.household_id} value={m.household_id}>
-                  {getHouseholdName(m) ?? 'Unnamed'}
-                </option>
-              ))}
-            </select>
-          ) : null}
-
-          <select value={colourTheme} onChange={(e) => setColourTheme(e.target.value as ColourTheme)} aria-label="Colour theme">
-            <option value="default">🟣 Default</option>
-            <option value="ocean">🔵 Ocean</option>
-            <option value="forest">🟢 Forest</option>
-            <option value="sunset">🟠 Sunset</option>
-            <option value="rose">🌸 Rose</option>
-            <option value="slate">⬜ Slate</option>
-            <option value="candy">💜 Candy</option>
-          </select>
-          <select value={themeMode} onChange={(e) => setThemeMode(e.target.value as ThemeMode)} aria-label="Theme mode">
-            <option value="system">System</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-
-          <button className="ghost" type="button" onClick={signOut}>
-            {isDemoMode ? 'Exit Demo' : 'Sign out'}
-          </button>
-        </div>
-      </header>
-
       <nav className="tabs">
         {hasMembership ? (
           <>
@@ -426,6 +400,7 @@ function App() {
         {isSystemAdmin ? (
           <button className={activeTab === 'admin-suite' ? 'active' : ''} type="button" onClick={() => setActiveTab('admin-suite')}>Admin Suite</button>
         ) : null}
+        <button className={activeTab === 'settings' ? 'active' : ''} type="button" onClick={() => setActiveTab('settings')}>Settings</button>
       </nav>
 
 
@@ -489,6 +464,56 @@ function App() {
           onError={setError}
           onStatus={setStatus}
         />
+      ) : null}
+
+      {activeTab === 'settings' ? (
+        <section className="section">
+          <h2>Settings</h2>
+          <div className="settings-card">
+            <div className="settings-row">
+              <label>Account</label>
+              <span className="settings-value">{isDemoMode ? 'Demo mode' : userEmail}</span>
+            </div>
+            {hasMembership ? (
+              <div className="settings-row">
+                <label>Household</label>
+                <select value={activeHouseholdId} onChange={(e) => setActiveHouseholdId(e.target.value)}>
+                  {memberships.map((m) => (
+                    <option key={m.household_id} value={m.household_id}>
+                      {getHouseholdName(m) ?? 'Unnamed'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="settings-row">
+              <label>Colour theme</label>
+              <select value={colourTheme} onChange={(e) => setColourTheme(e.target.value as ColourTheme)}>
+                <option value="default">🟣 Default</option>
+                <option value="ocean">🔵 Ocean</option>
+                <option value="forest">🟢 Forest</option>
+                <option value="sunset">🟠 Sunset</option>
+                <option value="rose">🌸 Rose</option>
+                <option value="slate">⬜ Slate</option>
+                <option value="candy">💜 Candy</option>
+              </select>
+            </div>
+            <div className="settings-row">
+              <label>Appearance</label>
+              <select value={themeMode} onChange={(e) => setThemeMode(e.target.value as ThemeMode)}>
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+            <div className="settings-row">
+              <label>Session</label>
+              <button className="ghost" type="button" onClick={signOut}>
+                {isDemoMode ? 'Exit Demo' : 'Sign out'}
+              </button>
+            </div>
+          </div>
+        </section>
       ) : null}
 
       <StatusBar error={error} status={status} />
