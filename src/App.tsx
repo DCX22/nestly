@@ -548,13 +548,6 @@ function AuthPanel({
         </form>
       </section>
 
-      <section className="card">
-        <h2>Try Demo</h2>
-        <p style={{ margin: '0 0 1rem', color: 'var(--ink-muted)', fontSize: '0.875rem' }}>
-          Explore the app with sample data. No account needed — changes won't be saved.
-        </p>
-        <button type="button" onClick={onEnterDemo}>Enter Demo Mode</button>
-      </section>
     </div>
   )
 }
