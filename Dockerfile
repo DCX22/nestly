@@ -12,32 +12,19 @@ RUN if [ -d public ]; then cp -r public ./public; fi
 
 RUN node node_modules/vite/bin/vite.js build
 
-# ── Stage 2: Build server ─────────────────────────────────────────────────────
-FROM node:22-alpine AS server-builder
-
-WORKDIR /app/server
-
-COPY server/package.json server/package-lock.json ./
-RUN npm install
-
-COPY server/tsconfig.json ./
-COPY server/src ./src
-
-RUN node node_modules/typescript/bin/tsc
-
-# ── Stage 3: Production image ─────────────────────────────────────────────────
+# ── Stage 2: Production image ─────────────────────────────────────────────────
 FROM node:22-alpine AS production
 
 WORKDIR /app
 
-# Server production dependencies only
+# Install production server dependencies (includes tsx)
 COPY server/package.json server/package-lock.json ./
 RUN npm install --omit=dev
 
-# Compiled server goes to /app/server-dist
-COPY --from=server-builder /app/server/dist ./server-dist
+# Server source (tsx runs it directly — no compile step needed)
+COPY server/src ./src
 
-# Built frontend goes to /app/public
+# Built frontend served as static files
 COPY --from=frontend-builder /app/dist ./public
 
 ENV NODE_ENV=production
@@ -45,4 +32,4 @@ ENV PORT=3002
 
 EXPOSE 3002
 
-CMD ["node", "server-dist/index.js"]
+CMD ["node_modules/.bin/tsx", "src/index.ts"]
