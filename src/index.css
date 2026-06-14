@@ -393,12 +393,18 @@ textarea {
   border-radius: 8px;
   border: 1px solid var(--border);
   padding: 0.5rem 0.75rem;
-  width: 100%;
-  box-sizing: border-box;
+  min-width: 0;
   background: var(--bg);
   color: var(--ink);
   transition: border-color 0.12s, box-shadow 0.12s;
   outline: none;
+}
+
+.stack input,
+.stack select,
+.stack textarea {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 input:focus,
