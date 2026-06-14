@@ -96,6 +96,24 @@ function makeDemoData() {
   return { shopping, recipes, mealPlan, todos, members, memberships }
 }
 
+function LoadingScreen() {
+  return (
+    <div className="loading-screen">
+      <div className="loading-nest">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+          <rect width="48" height="48" rx="10" fill="#1e1b4b"/>
+          <path d="M10,30 A14,14 0 0,1 38,30" fill="none" stroke="#a78bfa" strokeWidth="3" strokeLinecap="round"/>
+          <path d="M14,30 A10,10 0 0,1 34,30" fill="none" stroke="#8b5cf6" strokeWidth="3" strokeLinecap="round"/>
+          <path d="M18,30 A6,6 0 0,1 30,30" fill="none" stroke="#7c3aed" strokeWidth="3" strokeLinecap="round"/>
+          <ellipse cx="21" cy="22" rx="3" ry="2.2" fill="#c4b5fd"/>
+          <ellipse cx="27" cy="22" rx="3" ry="2.2" fill="#a78bfa"/>
+        </svg>
+      </div>
+      <p className="loading-label">Loading...</p>
+    </div>
+  )
+}
+
 function App() {
   const [loadingAuth, setLoadingAuth] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
@@ -322,7 +340,9 @@ function App() {
     setStatus('Signed out.')
   }
 
-  if (loadingAuth) return <div className="shell">Loading...</div>
+  if (loadingAuth) return <LoadingScreen />
+
+
 
   if (!userId && !isDemoMode) {
     return (
