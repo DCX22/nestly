@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { pool } from '../db'
 import { requireAuth, requireAdmin } from '../middleware/auth'
+import { sendInviteEmail } from '../lib/email'
 
 const router = Router()
 router.use(requireAuth)
@@ -22,12 +23,26 @@ router.post('/', requireAdmin, async (req, res) => {
   if (!householdId || !email?.trim()) {
     res.status(400).json({ message: 'householdId and email required' }); return
   }
+
+  const householdRes = await pool.query(
+    'SELECT name FROM households WHERE id = $1',
+    [householdId],
+  )
+  const householdName = householdRes.rows[0]?.name ?? 'your household'
+
   const { rows } = await pool.query(
     `INSERT INTO household_invites (household_id, email)
      VALUES ($1, $2) RETURNING *`,
     [householdId, email.trim().toLowerCase()],
   )
-  res.status(201).json(rows[0])
+  const invite = rows[0]
+
+  // Send invite email (non-blocking — don't fail the request if email fails)
+  sendInviteEmail(invite.email, invite.invite_token, householdName).catch((err: Error) => {
+    console.error('Failed to send invite email:', err.message)
+  })
+
+  res.status(201).json(invite)
 })
 
 router.delete('/:id', requireAdmin, async (req, res) => {
